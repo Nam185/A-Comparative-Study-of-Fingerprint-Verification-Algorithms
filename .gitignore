@@ -1,0 +1,20 @@
+# Dataset (FVC2002 is license-restricted — do not redistribute)
+fingerprints/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor
+.vscode/
+.idea/
+
+# Personal report drafts (not for public repo)
+*.docx
+
+# Keep results/ committed (CSV + figures are part of the report),
+# but ignore scratch files
+_*.py
+*.tmp

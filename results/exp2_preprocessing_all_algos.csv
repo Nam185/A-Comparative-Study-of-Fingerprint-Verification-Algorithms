@@ -1,0 +1,25 @@
+db,algo,combo,combo_desc,eer_pct,genuine_avg,imposter_avg,avg_keypoints,avg_minutiae
+DB1_B,SIFT,C1,Gaussian + CLAHE,16.67,143.19,5.47,2304.7,
+DB1_B,SIFT,C2,Bilateral + CLAHE,16.43,132.23,5.07,2124.4,
+DB1_B,SIFT,C3,Median + HistEq,25.79,82.11,6.24,2072.8,
+DB1_B,SIFT,C1+G,Gaussian + CLAHE + Gabor,16.35,51.07,3.64,987.3,
+DB1_B,SIFT,C2+G,Bilateral + CLAHE + Gabor,25.48,49.76,4.56,964.2,
+DB1_B,SIFT,C3+G,Median + HistEq + Gabor,13.81,34.46,4.36,906.9,
+DB1_B,ORB,C1,Gaussian + CLAHE,21.9,45.16,3.24,1498.7,
+DB1_B,ORB,C2,Bilateral + CLAHE,27.62,45.4,3.73,1498.1,
+DB1_B,ORB,C3,Median + HistEq,31.03,32.51,4.02,1491.0,
+DB1_B,ORB,C1+G,Gaussian + CLAHE + Gabor,26.83,30.61,4.49,1438.9,
+DB1_B,ORB,C2+G,Bilateral + CLAHE + Gabor,26.9,30.0,4.89,1435.7,
+DB1_B,ORB,C3+G,Median + HistEq + Gabor,25.0,25.44,4.64,1430.2,
+DB1_B,LBP,C1,Gaussian + CLAHE,44.37,2.82,0.18,0.0,
+DB1_B,LBP,C2,Bilateral + CLAHE,42.54,2.69,0.18,0.0,
+DB1_B,LBP,C3,Median + HistEq,46.19,2.72,0.16,0.0,
+DB1_B,LBP,C1+G,Gaussian + CLAHE + Gabor,42.54,2.27,0.23,0.0,
+DB1_B,LBP,C2+G,Bilateral + CLAHE + Gabor,42.54,2.2,0.23,0.0,
+DB1_B,LBP,C3+G,Median + HistEq + Gabor,46.19,2.26,0.21,0.0,
+DB1_B,Minutiae,C1,Gaussian + CLAHE,21.75,24.46,0.84,276.9,276.9
+DB1_B,Minutiae,C2,Bilateral + CLAHE,21.03,24.87,1.04,275.4,275.4
+DB1_B,Minutiae,C3,Median + HistEq,20.95,17.69,0.69,237.5,237.5
+DB1_B,Minutiae,C1+G,Gaussian + CLAHE + Gabor,17.86,20.67,1.11,276.2,276.2
+DB1_B,Minutiae,C2+G,Bilateral + CLAHE + Gabor,19.6,19.87,0.98,275.9,275.9
+DB1_B,Minutiae,C3+G,Median + HistEq + Gabor,18.89,18.51,0.87,271.8,271.8
