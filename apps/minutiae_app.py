@@ -21,7 +21,7 @@ import time
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # project root (parent of apps/)
 DEFAULT_FOLDER = os.path.join(BASE_DIR, "fingerprints", "DB1_B")
 
 _SIFT = cv2.SIFT_create()

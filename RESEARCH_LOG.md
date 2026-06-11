@@ -55,7 +55,7 @@ Four combos were implemented and benchmarked with the SIFT+RANSAC matcher:
 
 ## 2. FEATURE EXTRACTION + MATCHING — per algorithm
 
-### 2.1 SIFT (`Biology.py`)
+### 2.1 SIFT (`apps/sift_app.py`)
 
 | | Before | After |
 |---|--------|-------|
@@ -70,7 +70,7 @@ different fingers still share a few accidental matches. **RANSAC** keeps only ma
 follow one consistent transform → imposter scores collapse (avg 2.5 → max ~9) while genuine
 scores stay high (avg → 143). This is the single biggest accuracy gain.
 
-### 2.2 ORB (`ORB.py`)
+### 2.2 ORB (`apps/orb_app.py`)
 
 | | Before | After |
 |---|--------|-------|
@@ -82,7 +82,7 @@ scores stay high (avg → 143). This is the single biggest accuracy gain.
 **Why:** Same RANSAC verification as SIFT. ORB improves less because its binary descriptors
 and corner detector are weaker on smooth ridge patterns → ORB stays the weakest *keypoint* method.
 
-### 2.3 LBP (`lbp_main.py`)
+### 2.3 LBP (`apps/lbp_app.py`)
 
 | | Before | After |
 |---|--------|-------|
@@ -97,7 +97,7 @@ textbook-correct upgrade, but EER stays ~44% because LBP has **no geometric alig
 misaligned prints compare mismatched cells. **Honest finding: LBP is the wrong tool for
 fingerprint *identity*; it is kept as a baseline to contrast against SIFT/ORB.**
 
-### 2.4 Minutiae & Bifurcation (`Minutiae.py`) — NEW (teacher's suggestion)
+### 2.4 Minutiae & Bifurcation (`apps/minutiae_app.py`) — NEW (teacher's suggestion)
 
 | | Status |
 |---|--------|
@@ -136,7 +136,7 @@ algorithm and (b) the minutiae map for the demo.
 
 1. **Path bug** — `"Exercise/biology_science/fingerprints/DB1_B"` was wrong relative to the
    working directory → replaced with absolute `BASE_DIR`-based paths.
-2. **`Biology.py` crash** — menu options 1 & 3 used an **undefined** `folder_path` → `NameError`.
+2. **SIFT app crash** (`apps/sift_app.py`, originally `Biology.py`) — menu options 1 & 3 used an **undefined** `folder_path` → `NameError`.
    Now `folder_path = DEFAULT_FOLDER` is defined.
 3. **Performance** — `cv2.SIFT_create()` / `ORB_create()` were created **per image**; now created **once**.
 4. **Language** — all comments and console UI translated **Vietnamese → English** (course is in English).
@@ -202,7 +202,7 @@ core/          single source of truth (no duplication)
   features.py      SIFT / ORB / LBP / Minutiae extractors
   matching.py      match + RANSAC + scoring variants S1..S4
   evaluation.py    1:1 EER, 1:N Rank-1 / identification rate
-apps/          interactive demos (Biology/ORB/lbp/Minutiae) — unchanged behaviour
+apps/          interactive demos: sift_app / orb_app / lbp_app / minutiae_app
 experiments/   run_experiments.py  (--exp 1|2|3|4)
 results/       CSV outputs + figures/  (committed: part of the report)
 fingerprints/  FVC2002 data (git-ignored: license-restricted)

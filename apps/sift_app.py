@@ -5,8 +5,8 @@ import time
 import matplotlib.pyplot as plt
 import glob
 
-# Root directory of this file -> paths work regardless of the current working dir
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Project root (parent of apps/) -> dataset paths work regardless of working dir
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_FOLDER = os.path.join(BASE_DIR, "fingerprints", "DB1_B")
 
 # Create the SIFT detector only once (re-creating it per image is very slow)
