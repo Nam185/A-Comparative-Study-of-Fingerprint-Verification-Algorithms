@@ -1,0 +1,17 @@
+db,difficulty,algo,threshold,rank1_acc_pct,identification_rate_pct,n_queries
+DB1_B,average,SIFT,13,80.0,72.9,70
+DB1_B,average,ORB,10,70.0,51.4,70
+DB1_B,average,LBP,50,24.3,1.4,70
+DB1_B,average,Minutiae,10,72.9,42.9,70
+DB2_B,easy,SIFT,13,91.4,88.6,70
+DB2_B,easy,ORB,10,85.7,60.0,70
+DB2_B,easy,LBP,50,45.7,0.0,70
+DB2_B,easy,Minutiae,10,78.6,74.3,70
+DB3_B,hard,SIFT,13,54.3,32.9,70
+DB3_B,hard,ORB,10,44.3,21.4,70
+DB3_B,hard,LBP,50,50.0,0.0,70
+DB3_B,hard,Minutiae,10,57.1,42.9,70
+DB4_B,synthetic/worst,SIFT,13,17.1,1.4,70
+DB4_B,synthetic/worst,ORB,10,15.7,0.0,70
+DB4_B,synthetic/worst,LBP,50,21.4,0.0,70
+DB4_B,synthetic/worst,Minutiae,10,20.0,14.3,70

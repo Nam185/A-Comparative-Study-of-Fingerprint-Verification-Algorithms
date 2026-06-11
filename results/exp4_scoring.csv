@@ -1,0 +1,17 @@
+algo,db,variant,variant_desc,eer_pct,genuine_avg,imposter_avg
+SIFT,DB1_B,S1,absolute good-match count,20.0,166.1,18.13
+SIFT,DB1_B,S2,% matches (good / min_kp * 100),22.54,7.51,1.05
+SIFT,DB1_B,S3,RANSAC inlier count,16.67,143.19,5.47
+SIFT,DB1_B,S4,RANSAC inlier ratio (inliers / good * 100),24.37,61.36,32.7
+SIFT,DB3_B,S1,absolute good-match count,38.57,30.23,11.67
+SIFT,DB3_B,S2,% matches (good / min_kp * 100),40.0,1.62,0.68
+SIFT,DB3_B,S3,RANSAC inlier count,32.54,19.93,5.13
+SIFT,DB3_B,S4,RANSAC inlier ratio (inliers / good * 100),39.29,55.66,49.05
+ORB,DB1_B,S1,absolute good-match count,25.08,53.91,9.13
+ORB,DB1_B,S2,% matches (good / min_kp * 100),25.08,3.6,0.61
+ORB,DB1_B,S3,RANSAC inlier count,21.9,45.16,3.24
+ORB,DB1_B,S4,RANSAC inlier ratio (inliers / good * 100),33.1,59.07,34.49
+ORB,DB3_B,S1,absolute good-match count,38.17,13.13,7.69
+ORB,DB3_B,S2,% matches (good / min_kp * 100),38.17,0.94,0.55
+ORB,DB3_B,S3,RANSAC inlier count,32.78,6.91,2.84
+ORB,DB3_B,S4,RANSAC inlier ratio (inliers / good * 100),35.63,48.68,37.09

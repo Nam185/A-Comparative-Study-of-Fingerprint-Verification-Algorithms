@@ -24,8 +24,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.io_utils import BASE_DIR, DBS, DB_DIFFICULTY, set_seed, read_gray, img_path
 from core.preprocessing import COMBOS, COMBO_DESC
 from core.features import EXTRACTORS
-from core.matching import match, SCORING_VARIANTS
-from core.evaluation import collect_scores, eer, FINGERS, IMPRESSIONS
+from core.matching import match, match_components, score_from_components, SCORING_VARIANTS
+from core.evaluation import collect_scores, eer, rank1_and_idrate, FINGERS, IMPRESSIONS
 
 RESULTS = os.path.join(BASE_DIR, "results")
 FIGURES = os.path.join(RESULTS, "figures")
@@ -35,6 +35,20 @@ COMBO_ORDER = ["C1", "C2", "C3", "C1+G", "C2+G", "C3+G"]
 ALGO_ORDER = ["SIFT", "ORB", "LBP", "Minutiae"]
 # Per-algorithm scoring + 1:N fixed threshold (from production defaults)
 ALGO_SCORING = {"SIFT": "S3", "ORB": "S3", "LBP": "chi", "Minutiae": "S3"}
+ALGO_THRESHOLD = {"SIFT": 13, "ORB": 10, "LBP": 50, "Minutiae": 10}
+
+
+def _build_feat_fn(db, combo_fn, extractor):
+    """Return a cached feat(finger_id, impression) for one (db, combo, algo)."""
+    cache = {}
+
+    def feat(fid, imp):
+        k = (fid, imp)
+        if k not in cache:
+            cache[k] = extractor(combo_fn(read_gray(img_path(db, fid, imp))))
+        return cache[k]
+
+    return feat, cache
 
 
 def _eval_1to1(db, combo_fn, extractor, ratio=0.75, scoring="S3"):
@@ -161,12 +175,106 @@ def _grouped_bar(matrix, groups, series, ylabel, title, path, group_by="db"):
     plt.close()
 
 
+def _roc_curve(curves, path, title):
+    """curves[algo] = (genuine, imposter). Plot FAR (x) vs TAR=1-FRR (y)."""
+    plt.figure(figsize=(8, 7))
+    for algo in ALGO_ORDER:
+        if algo not in curves:
+            continue
+        g = np.asarray(curves[algo][0], float)
+        im = np.asarray(curves[algo][1], float)
+        ts = np.unique(np.concatenate([g, im]))
+        far = [np.mean(im >= t) for t in ts]
+        tar = [np.mean(g >= t) for t in ts]   # genuine acceptance = 1 - FRR
+        order = np.argsort(far)
+        plt.plot(np.array(far)[order], np.array(tar)[order], marker=".", label=algo)
+    plt.plot([0, 1], [0, 1], "k--", alpha=0.4, label="chance")
+    plt.xlabel("False Accept Rate (FAR)", fontweight="bold")
+    plt.ylabel("True Accept Rate (1 - FRR)", fontweight="bold")
+    plt.title(title, fontweight="bold")
+    plt.legend()
+    plt.grid(linestyle="--", alpha=0.6)
+    plt.tight_layout()
+    plt.savefig(path, dpi=150)
+    plt.close()
+
+
+# ============================== EXPERIMENT 3 ==============================
 def experiment_3():
-    print("Experiment 3 (full algo x DB, 1:1 + 1:N) — not implemented yet. Coming next.")
+    seed = set_seed()
+    print(f"\n=== EXPERIMENT 3: Full comparison (combo C1, 4 algos x 4 DBs, 1:1 + 1:N) | seed={seed} ===\n")
+    rows_11, rows_1n = [], []
+    eer_matrix = {db: {} for db in DBS}
+    curves = {}  # DB1_B genuine/imposter scores for the ROC figure
+
+    print(f"{'DB':7s} {'algo':10s} | {'1:1 EER%':>8s} {'genAvg':>8s} {'impAvg':>7s} | "
+          f"{'thr':>4s} {'Rank1%':>7s} {'IDrate%':>8s}")
+    for db in DBS:
+        for algo in ALGO_ORDER:
+            feat, _ = _build_feat_fn(db, COMBOS["C1"], EXTRACTORS[algo])
+            match_fn = lambda a, b: match(a, b, scoring="S3")  # S3 for kp; LBP dispatches to chi
+            # --- 1:1 ---
+            gen, imp = collect_scores(feat, match_fn)
+            e, _ = eer(gen, imp)
+            eer_matrix[db][algo] = e
+            if db == "DB1_B":
+                curves[algo] = (gen, imp)
+            # --- 1:N ---
+            thr = ALGO_THRESHOLD[algo]
+            rank1, idrate, total = rank1_and_idrate(feat, match_fn, thr)
+            print(f"{db:7s} {algo:10s} | {e:8.2f} {np.mean(gen):8.1f} {np.mean(imp):7.2f} | "
+                  f"{thr:4d} {rank1:7.1f} {idrate:8.1f}")
+            rows_11.append({"db": db, "difficulty": DB_DIFFICULTY[db], "algo": algo,
+                            "eer_pct": round(e, 2), "genuine_avg": round(float(np.mean(gen)), 2),
+                            "imposter_avg": round(float(np.mean(imp)), 2)})
+            rows_1n.append({"db": db, "difficulty": DB_DIFFICULTY[db], "algo": algo,
+                            "threshold": thr, "rank1_acc_pct": round(rank1, 1),
+                            "identification_rate_pct": round(idrate, 1), "n_queries": total})
+
+    _write_csv(os.path.join(RESULTS, "exp3_algo_x_db_1to1.csv"), rows_11)
+    _write_csv(os.path.join(RESULTS, "exp3_algo_x_db_1toN.csv"), rows_1n)
+    fig1 = os.path.join(FIGURES, "exp3_eer_algo_x_db.png")
+    _grouped_bar(eer_matrix, DBS, ALGO_ORDER, "EER (%)",
+                 "Exp 3: 1:1 EER per algorithm across databases (combo C1)", fig1, group_by="db")
+    fig2 = os.path.join(FIGURES, "exp3_roc_db1.png")
+    _roc_curve(curves, fig2, "Exp 3: ROC curve of the 4 algorithms (DB1_B)")
+    print(f"\nSaved: exp3_algo_x_db_1to1.csv, exp3_algo_x_db_1toN.csv\nSaved: {fig1}\nSaved: {fig2}")
+    return rows_11, rows_1n
 
 
+# ============================== EXPERIMENT 4 ==============================
 def experiment_4():
-    print("Experiment 4 (scoring strategy S1-S4) — not implemented yet. Coming next.")
+    seed = set_seed()
+    print(f"\n=== EXPERIMENT 4: Scoring strategy study (SIFT, ORB | DB1_B, DB3_B) | seed={seed} ===\n")
+    rows = []
+    print(f"{'algo':6s} {'DB':7s} {'variant':8s} {'EER%':>7s} {'genAvg':>9s} {'impAvg':>9s}  desc")
+    for algo in ["SIFT", "ORB"]:
+        for db in ["DB1_B", "DB3_B"]:
+            feat, _ = _build_feat_fn(db, COMBOS["C1"], EXTRACTORS[algo])
+            # Compute RANSAC components ONCE per pair, then derive every scoring variant
+            gen_comp, imp_comp = [], []
+            for fid in FINGERS:
+                base = feat(fid, 1)
+                for imp in IMPRESSIONS:
+                    gen_comp.append(match_components(base, feat(fid, imp)))
+            for i in FINGERS:
+                a = feat(i, 1)
+                for j in FINGERS:
+                    if j > i:
+                        imp_comp.append(match_components(a, feat(j, 1)))
+            for variant in ["S1", "S2", "S3", "S4"]:
+                g = [score_from_components(c, variant) for c in gen_comp]
+                m = [score_from_components(c, variant) for c in imp_comp]
+                e, _ = eer(g, m)
+                print(f"{algo:6s} {db:7s} {variant:8s} {e:7.2f} {np.mean(g):9.2f} "
+                      f"{np.mean(m):9.2f}  {SCORING_VARIANTS[variant]}")
+                rows.append({"algo": algo, "db": db, "variant": variant,
+                             "variant_desc": SCORING_VARIANTS[variant], "eer_pct": round(e, 2),
+                             "genuine_avg": round(float(np.mean(g)), 2),
+                             "imposter_avg": round(float(np.mean(m)), 2)})
+    _write_csv(os.path.join(RESULTS, "exp4_scoring.csv"), rows)
+    print(f"\nSaved: {os.path.join(RESULTS, 'exp4_scoring.csv')}")
+    return rows
 
 
 def main():

@@ -287,3 +287,31 @@ DB1_B, preprocessing-combo EER bars (Exp 1).
   informal "C2 is best / Gabor doesn't help" note.
 - **Decision:** keep **C1** as the shared production default (robust across all algorithms);
   mention per-algorithm best combos as a secondary finding. Do not adopt Gabor globally.
+
+### Iteration 3 — 2026-06-11 — Exp 3: Full comparison (4 algos × 4 DBs, 1:1 + 1:N)
+- **What changed:** benchmarked every algorithm on every DB with combo C1, for both tasks.
+  CSVs: `results/exp3_algo_x_db_1to1.csv`, `exp3_algo_x_db_1toN.csv`. Figures:
+  `exp3_eer_algo_x_db.png` (EER bars), `exp3_roc_db1.png` (ROC of 4 algos on DB1_B).
+- **MEASURED facts (1:1 EER):** SIFT wins on DB2/DB1/DB3 (6.19 / 16.67 / 32.54); on synthetic
+  DB4 every method is ~40–48% (ORB "best" at 40.16, but useless). DB difficulty ordering holds.
+- **MEASURED facts (1:N Rank-1 / identification rate):** SIFT 91.4/88.6 (DB2), 80.0/72.9 (DB1),
+  54.3/32.9 (DB3), 17.1/1.4 (DB4). LBP identification rate ≈ **0%** on every DB despite Rank-1
+  24–50% (its scores never reach a usable threshold). Minutiae leads Rank-1 on hard DB3 (57.1%).
+  DB4 near the 10% chance level for all methods.
+- **Hypotheses (NOT proven):** Minutiae's edge on DB3 likely comes from explicit ridge-ending
+  detection coping better with low-contrast capacitive images; lead is within sampling noise.
+- **Outcome vs previous:** confirms ranking SIFT > Minutiae ≈ ORB > LBP from §7 with full 1:N data.
+- **Decision:** recommend **SIFT** for the attendance demo; **LBP not usable for identification**
+  (Rank-1 by luck, 0% identification rate). No method works on synthetic DB4.
+
+### Iteration 4 — 2026-06-11 — Exp 4: Scoring strategy study (SIFT, ORB | DB1_B, DB3_B)
+- **What changed:** compared 4 scoring variants (S1 good-count, S2 % matches, S3 RANSAC inliers,
+  S4 inlier ratio) with RANSAC computed once per pair. CSV: `results/exp4_scoring.csv`.
+- **MEASURED facts:** **S3 is best in all 4 cases** — SIFT DB1 16.67 (vs S1 20.0, S2 22.54,
+  S4 24.37); SIFT DB3 32.54; ORB DB1 21.90; ORB DB3 32.78. **S4 is worst/near-worst.** For SIFT
+  DB1 the impostor average jumps 5.47 (S3) → 32.70 (S4), collapsing the genuine/impostor gap.
+- **Interpretation (supported by the impostor-avg numbers):** S4 discards evidence magnitude —
+  an impostor with few but mostly-consistent matches gets an inflated ratio. Geometric
+  verification matters, but the inlier *count* must be kept.
+- **Decision:** keep **S3 (RANSAC inlier count)** as the production score. Negative result for S4
+  recorded (a stated goal of the experiment).

@@ -1,0 +1,17 @@
+db,difficulty,algo,eer_pct,genuine_avg,imposter_avg
+DB1_B,average,SIFT,16.67,143.19,5.47
+DB1_B,average,ORB,21.9,45.16,3.24
+DB1_B,average,LBP,44.37,2.82,0.18
+DB1_B,average,Minutiae,21.75,24.46,0.84
+DB2_B,easy,SIFT,6.19,156.34,4.78
+DB2_B,easy,ORB,12.94,38.03,3.8
+DB2_B,easy,LBP,46.19,8.29,4.55
+DB2_B,easy,Minutiae,26.19,28.49,7.82
+DB3_B,hard,SIFT,32.54,19.93,5.13
+DB3_B,hard,ORB,32.78,6.91,2.84
+DB3_B,hard,LBP,37.46,23.11,15.21
+DB3_B,hard,Minutiae,32.78,9.59,3.04
+DB4_B,synthetic/worst,SIFT,48.25,4.79,4.73
+DB4_B,synthetic/worst,ORB,40.16,1.14,0.36
+DB4_B,synthetic/worst,LBP,46.9,8.35,5.61
+DB4_B,synthetic/worst,Minutiae,47.62,8.11,7.6
