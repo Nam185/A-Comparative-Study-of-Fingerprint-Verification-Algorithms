@@ -38,6 +38,23 @@ See Figure *exp3_eer_algo_x_db*.
 | DB3_B (hard)      | 54.3 / 32.9 | 44.3 / 21.4 | 50.0 / 0.0 | **57.1 / 42.9** |
 | DB4_B (synthetic) | 17.1 / 1.4 | 15.7 / 0.0 | **21.4** / 0.0 | 20.0 / 14.3 |
 
+### Results — efficiency / latency (mean over the 4 databases)
+Latency is the second primary criterion. It splits into the one-off **feature-extraction**
+(enrollment) cost per image and the **matching** cost per comparison; a 1:N identification against
+*N* enrolled templates costs `extract + N × match`, so the per-comparison match time is what
+dominates at scale. (Measured on the test machine with a fixed seed; absolute values are
+hardware-dependent, the relative ordering is what matters.)
+
+| Algorithm | Mean EER (%) | Match latency (ms/comparison) | Extraction (ms/image) | 1:N query @ N=10 (ms) |
+|-----------|--------------|-------------------------------|-----------------------|------------------------|
+| SIFT      | 25.91 | 46.58 | 68.0  | ≈ 585 |
+| ORB       | 26.94 | 15.58 | 11.8  | ≈ 186 |
+| LBP       | 43.73 | **0.03** | 29.3 | ≈ 28 |
+| Minutiae  | 32.08 | 4.53  | 118.3 | ≈ 118 |
+
+See Figure *exp3_eer_vs_latency* (accuracy–speed trade-off; best is lower-left). The 1:1 optimal
+threshold per (algorithm, database) is recorded in `exp3_algo_x_db_1to1.csv`.
+
 ### Discussion
 **SIFT is the best overall method**, winning the 1:1 EER on the three real-sensor databases and
 the 1:N task on the easy and average databases (Rank-1 91.4% on DB2_B). The ROC curve on DB1_B
@@ -65,10 +82,24 @@ slightly leads the 1:N Rank-1 (57.1%)** there; on such low-contrast capacitive i
 ridge-ending detection is competitive with SIFT. (These small leads are within the dataset's
 sampling noise; see the note in Experiment 1.)
 
+On the **latency** axis there is a clear accuracy–speed trade-off. SIFT is the most accurate but
+also the slowest to match (46.6 ms/comparison), because its enhanced images yield ~2300 keypoints
+that the brute-force matcher must compare. **ORB matches about 3× faster (15.6 ms) and enrolls
+fastest (11.8 ms/image)** for only a small accuracy loss on the realistic databases, which makes it
+the best-balanced option when the gallery is large — since 1:N cost grows as `N × match`, ORB's
+advantage compounds (e.g. for N = 10 000 templates, ≈ 156 s vs ≈ 466 s for SIFT). LBP matches almost
+instantly (0.03 ms, a single Chi-Square over a vector) but is too inaccurate to use. Minutiae has a
+moderate match time but the **slowest enrollment (118 ms/image)** because of the skeletonization step.
+
 ### Conclusion
-For a real attendance system we recommend **SIFT** (highest Rank-1 and identification rate on
-realistic data), with **Minutiae** as a defensible second choice that is competitive on hard
-images. **LBP should not be used for identification.** No method works on synthetic data.
+The two primary criteria give complementary answers. On **accuracy (EER)** SIFT is best; on
+**speed (latency)** LBP is fastest to match but useless, while ORB offers the best
+accuracy-per-millisecond. For a real attendance system we therefore recommend **SIFT** when
+accuracy is the priority and the gallery is small, and **ORB** when the gallery is large and
+matching speed dominates (its 3× faster matching compounds over the database size). **Minutiae**
+is a defensible alternative that is competitive on hard capacitive images but pays the highest
+enrollment cost, while **LBP should not be used for identification**. No method works on
+synthetic data.
 
 ---
 

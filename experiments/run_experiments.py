@@ -15,6 +15,7 @@ import os
 import sys
 import csv
 import argparse
+from time import perf_counter
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")  # save figures to file, no display needed
@@ -199,37 +200,90 @@ def _roc_curve(curves, path, title):
     plt.close()
 
 
+def _tradeoff_plot(agg, path):
+    """Accuracy vs speed: x = mean match latency (log), y = mean EER. Lower-left is better."""
+    plt.figure(figsize=(8, 6))
+    for algo in ALGO_ORDER:
+        x = float(np.mean(agg[algo]["match_ms"]))
+        y = float(np.mean(agg[algo]["eer"]))
+        plt.scatter(x, y, s=140, edgecolor="black", zorder=3)
+        plt.annotate(algo, (x, y), textcoords="offset points", xytext=(9, 5), fontweight="bold")
+    plt.xscale("log")
+    plt.xlabel("Match latency (ms per comparison, log scale) - lower is faster", fontweight="bold")
+    plt.ylabel("Mean EER over 4 DBs (%) - lower is more accurate", fontweight="bold")
+    plt.title("Exp 3: Accuracy vs Speed trade-off (best = lower-left)", fontweight="bold")
+    plt.grid(True, which="both", linestyle="--", alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(path, dpi=150)
+    plt.close()
+
+
 # ============================== EXPERIMENT 3 ==============================
 def experiment_3():
     seed = set_seed()
-    print(f"\n=== EXPERIMENT 3: Full comparison (combo C1, 4 algos x 4 DBs, 1:1 + 1:N) | seed={seed} ===\n")
+    print(f"\n=== EXPERIMENT 3: Full comparison (combo C1, 4 algos x 4 DBs, 1:1 + 1:N) | seed={seed} ===")
+    print("Primary criteria: EER (accuracy) and Latency (speed). N=10 enrolled templates.\n")
     rows_11, rows_1n = [], []
     eer_matrix = {db: {} for db in DBS}
-    curves = {}  # DB1_B genuine/imposter scores for the ROC figure
+    curves = {}                       # DB1_B genuine/imposter scores for the ROC figure
+    agg = {a: {"eer": [], "match_ms": [], "extract_ms": []} for a in ALGO_ORDER}
 
-    print(f"{'DB':7s} {'algo':10s} | {'1:1 EER%':>8s} {'genAvg':>8s} {'impAvg':>7s} | "
-          f"{'thr':>4s} {'Rank1%':>7s} {'IDrate%':>8s}")
+    print(f"{'DB':7s} {'algo':10s} | {'EER%':>6s} {'optThr':>7s} | {'Rank1%':>7s} {'IDrate%':>8s} | "
+          f"{'extr.ms':>8s} {'match.ms':>9s} {'1:N ms':>8s}")
+    N_TEMPLATES = 10
     for db in DBS:
         for algo in ALGO_ORDER:
-            feat, _ = _build_feat_fn(db, COMBOS["C1"], EXTRACTORS[algo])
-            match_fn = lambda a, b: match(a, b, scoring="S3")  # S3 for kp; LBP dispatches to chi
-            # --- 1:1 ---
-            gen, imp = collect_scores(feat, match_fn)
-            e, _ = eer(gen, imp)
+            combo_fn, extractor = COMBOS["C1"], EXTRACTORS[algo]
+            cache, extract_times = {}, []
+
+            def feat(fid, imp):
+                k = (fid, imp)
+                if k not in cache:
+                    img = read_gray(img_path(db, fid, imp))   # disk read NOT timed
+                    t0 = perf_counter()
+                    cache[k] = extractor(combo_fn(img))        # preprocess + extract IS timed
+                    extract_times.append(perf_counter() - t0)
+                return cache[k]
+
+            match_times = []
+
+            def tmatch(a, b):
+                t0 = perf_counter()
+                s = match(a, b, scoring="S3")                  # S3 for kp; LBP dispatches to chi
+                match_times.append(perf_counter() - t0)
+                return s
+
+            # --- 1:1: EER + optimal threshold ---
+            gen, imp = collect_scores(feat, tmatch)
+            e, opt_thr = eer(gen, imp)
             eer_matrix[db][algo] = e
             if db == "DB1_B":
                 curves[algo] = (gen, imp)
-            # --- 1:N ---
+
+            # --- 1:N: Rank-1 + identification rate at the fixed operating threshold ---
             thr = ALGO_THRESHOLD[algo]
-            rank1, idrate, total = rank1_and_idrate(feat, match_fn, thr)
-            print(f"{db:7s} {algo:10s} | {e:8.2f} {np.mean(gen):8.1f} {np.mean(imp):7.2f} | "
-                  f"{thr:4d} {rank1:7.1f} {idrate:8.1f}")
+            rank1, idrate, total = rank1_and_idrate(feat, lambda a, b: match(a, b, scoring="S3"), thr)
+
+            # --- Latency ---
+            extract_ms = float(np.mean(extract_times)) * 1000
+            match_ms = float(np.mean(match_times)) * 1000
+            ident_ms = extract_ms + N_TEMPLATES * match_ms      # cost of one 1:N query (N=10)
+            agg[algo]["eer"].append(e)
+            agg[algo]["match_ms"].append(match_ms)
+            agg[algo]["extract_ms"].append(extract_ms)
+
+            print(f"{db:7s} {algo:10s} | {e:6.2f} {opt_thr:7.1f} | {rank1:7.1f} {idrate:8.1f} | "
+                  f"{extract_ms:8.2f} {match_ms:9.3f} {ident_ms:8.2f}")
             rows_11.append({"db": db, "difficulty": DB_DIFFICULTY[db], "algo": algo,
-                            "eer_pct": round(e, 2), "genuine_avg": round(float(np.mean(gen)), 2),
-                            "imposter_avg": round(float(np.mean(imp)), 2)})
+                            "eer_pct": round(e, 2), "optimal_threshold": round(opt_thr, 2),
+                            "genuine_avg": round(float(np.mean(gen)), 2),
+                            "imposter_avg": round(float(np.mean(imp)), 2),
+                            "extract_ms_per_img": round(extract_ms, 2),
+                            "match_ms_per_cmp": round(match_ms, 3)})
             rows_1n.append({"db": db, "difficulty": DB_DIFFICULTY[db], "algo": algo,
                             "threshold": thr, "rank1_acc_pct": round(rank1, 1),
-                            "identification_rate_pct": round(idrate, 1), "n_queries": total})
+                            "identification_rate_pct": round(idrate, 1), "n_queries": total,
+                            "ident_latency_ms_per_query": round(ident_ms, 2)})
 
     _write_csv(os.path.join(RESULTS, "exp3_algo_x_db_1to1.csv"), rows_11)
     _write_csv(os.path.join(RESULTS, "exp3_algo_x_db_1toN.csv"), rows_1n)
@@ -238,7 +292,17 @@ def experiment_3():
                  "Exp 3: 1:1 EER per algorithm across databases (combo C1)", fig1, group_by="db")
     fig2 = os.path.join(FIGURES, "exp3_roc_db1.png")
     _roc_curve(curves, fig2, "Exp 3: ROC curve of the 4 algorithms (DB1_B)")
-    print(f"\nSaved: exp3_algo_x_db_1to1.csv, exp3_algo_x_db_1toN.csv\nSaved: {fig1}\nSaved: {fig2}")
+    fig3 = os.path.join(FIGURES, "exp3_eer_vs_latency.png")
+    _tradeoff_plot(agg, fig3)
+    print(f"\nSaved: exp3_algo_x_db_1to1.csv, exp3_algo_x_db_1toN.csv")
+    print(f"Saved: {fig1}\nSaved: {fig2}\nSaved: {fig3}")
+
+    # Accuracy/speed summary averaged over the four DBs
+    print("\n--- Mean over 4 DBs (primary criteria) ---")
+    print(f"{'algo':10s} {'mean EER%':>9s} {'match ms/cmp':>13s} {'extract ms/img':>15s}")
+    for algo in ALGO_ORDER:
+        print(f"{algo:10s} {np.mean(agg[algo]['eer']):9.2f} "
+              f"{np.mean(agg[algo]['match_ms']):13.3f} {np.mean(agg[algo]['extract_ms']):15.2f}")
     return rows_11, rows_1n
 
 

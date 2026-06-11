@@ -77,7 +77,7 @@ scores stay high (avg → 143). This is the single biggest accuracy gain.
 | Feature | ORB, `nfeatures=1000` | ORB, `nfeatures=1500` |
 | Matching | BFMatcher(HAMMING) + ratio 0.7 | BFMatcher(HAMMING) + ratio 0.8 **+ RANSAC** |
 | Score | `good_matches / min_keypoints × 100` (%) | **RANSAC inlier count** |
-| **EER (DB1_B)** | **29.29%** | **26.98%** ✅ |
+| **EER (DB1_B)** | **29.29%** | **21.90%** ✅ |
 
 **Why:** Same RANSAC verification as SIFT. ORB improves less because its binary descriptors
 and corner detector are weaker on smooth ridge patterns → ORB stays the weakest *keypoint* method.
@@ -164,7 +164,7 @@ harder because it is synthetically generated.
 |------|-----------|-------------|-------------------|
 | 1 | **SIFT + RANSAC** | **16.67%** | Best accuracy; rotation/scale invariant |
 | 2 | Minutiae (CN) | 21.11% | Classic, great for visualization; sensitive to binarization |
-| 3 | ORB + RANSAC | 26.98% | Faster, but binary descriptors weaker on ridges |
+| 3 | ORB + RANSAC | 21.90% | Faster, but binary descriptors weaker on ridges |
 | 4 | LBP (grid) | ~44% | Global texture, no alignment → unsuitable for identity |
 
 ---
@@ -303,6 +303,20 @@ DB1_B, preprocessing-combo EER bars (Exp 1).
 - **Outcome vs previous:** confirms ranking SIFT > Minutiae ≈ ORB > LBP from §7 with full 1:N data.
 - **Decision:** recommend **SIFT** for the attendance demo; **LBP not usable for identification**
   (Rank-1 by luck, 0% identification rate). No method works on synthetic DB4.
+
+### Iteration 3b — 2026-06-11 — Exp 3 extended with LATENCY (the 2nd primary criterion)
+- **What changed:** the plan (Group_13) requires comparing algorithms on **EER + latency**. Added
+  to Exp 3: extraction latency (ms/image), match latency (ms/comparison), 1:N query latency
+  (extract + N×match, N=10), the 1:1 optimal threshold, plus an EER-vs-latency trade-off figure
+  (`results/figures/exp3_eer_vs_latency.png`). New CSV columns in both Exp 3 CSVs.
+- **MEASURED facts (mean over 4 DBs):** SIFT EER 25.91% / match 46.6 ms / extract 68 ms;
+  ORB 26.94% / 15.6 ms / 11.8 ms; LBP 43.73% / **0.03 ms** / 29 ms; Minutiae 32.08% / 4.5 ms /
+  **118 ms**. So SIFT = most accurate but slowest match; ORB = ~3× faster match + fastest enroll,
+  small accuracy loss; LBP = fastest but useless; Minutiae = slowest enrollment (skeletonization).
+- **Interpretation:** 1:N cost ≈ N×match, so at scale ORB's faster matching compounds (N=10000:
+  ~156 s vs ~466 s for SIFT). Latency is hardware-dependent; relative ordering is the point.
+- **Decision:** report **both** criteria. Recommend SIFT when accuracy-first / small gallery,
+  ORB when gallery is large and match speed dominates.
 
 ### Iteration 4 — 2026-06-11 — Exp 4: Scoring strategy study (SIFT, ORB | DB1_B, DB3_B)
 - **What changed:** compared 4 scoring variants (S1 good-count, S2 % matches, S3 RANSAC inliers,
