@@ -14,8 +14,10 @@ to results/figures/, and prints a summary you can screenshot for the report.
 import os
 import sys
 import csv
+import glob
 import argparse
 from time import perf_counter
+import cv2
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")  # save figures to file, no display needed
@@ -27,6 +29,8 @@ from core.preprocessing import COMBOS, COMBO_DESC
 from core.features import EXTRACTORS
 from core.matching import match, match_components, score_from_components, SCORING_VARIANTS
 from core.evaluation import collect_scores, eer, rank1_and_idrate, FINGERS, IMPRESSIONS
+from core import minutiae_native as MN
+from core.features import sift_features
 
 RESULTS = os.path.join(BASE_DIR, "results")
 FIGURES = os.path.join(RESULTS, "figures")
@@ -341,20 +345,123 @@ def experiment_4():
     return rows
 
 
+# ============================== EXPERIMENT 5 (SOCOFing, large 1:N) ==============================
+SOCO_DIR = os.path.join(BASE_DIR, "fingerprints")
+SOCO_UPSCALE = 3  # SOCOFing images are tiny (~96x103 px) -> upscale before processing
+
+
+def _soco_prep(path, method):
+    """Per-method best preprocessing for SOCOFing (upscale + the method's own combo)."""
+    img = read_gray(path)
+    img = cv2.resize(img, None, fx=SOCO_UPSCALE, fy=SOCO_UPSCALE, interpolation=cv2.INTER_CUBIC)
+    if method == "SIFT":
+        return COMBOS["C1"](img)        # SIFT's best combo from the FVC study
+    return COMBOS["C1+G"](img)          # Minutiae's best combo (Gabor) from the FVC study
+
+
+def _soco_feature(path, method):
+    enh = _soco_prep(path, method)
+    return sift_features(enh) if method == "SIFT" else MN.minutiae_features(enh)
+
+
+def _soco_match(method):
+    return (lambda a, b: match(a, b, scoring="S3")) if method == "SIFT" else MN.match
+
+
+def experiment_5(sample=120):
+    """SOCOFing: SIFT vs Minutiae for a LARGE 1:N gallery. Speed-at-scale is the focus.
+
+    Accuracy needs genuine pairs (Real vs Altered); if the Altered folder is absent the
+    accuracy part is skipped and only the latency / scaling study is produced.
+    """
+    seed = set_seed()
+    real = sorted(glob.glob(os.path.join(SOCO_DIR, "Real", "*.BMP")))
+    if not real:
+        print("SOCOFing 'Real' folder not found under fingerprints/Real. Skipping Exp 5.")
+        return
+    print(f"\n=== EXPERIMENT 5: SOCOFing SIFT vs Minutiae (real, large 1:N) | seed={seed} ===")
+    print(f"Gallery available: {len(real)} real fingerprints (600 subjects x 10 fingers).")
+    print(f"Each algorithm uses its OWN best preprocessing (upscale x{SOCO_UPSCALE}).\n")
+
+    paths = real[:sample]
+    rows = []
+    timings = {}
+    print(f"{'algo':10s} {'avg minutiae/kp':>16s} {'extract ms/img':>15s} {'match ms/cmp':>13s}")
+    for method in ["SIFT", "Minutiae"]:
+        feats, ext_ms = [], []
+        for p in paths:
+            t0 = perf_counter()
+            f = _soco_feature(p, method)
+            ext_ms.append((perf_counter() - t0) * 1000)
+            feats.append(f)
+        mfn = _soco_match(method)
+        match_ms = []
+        for i in range(len(feats) - 1):
+            t0 = perf_counter()
+            mfn(feats[i], feats[i + 1])          # different fingers -> realistic impostor cost
+            match_ms.append((perf_counter() - t0) * 1000)
+        if method == "SIFT":
+            cnt = np.mean([f["n_kp"] for f in feats])
+        else:
+            cnt = np.mean([f["n_minutiae"] for f in feats])
+        em, mm = float(np.mean(ext_ms)), float(np.mean(match_ms))
+        timings[method] = (em, mm)
+        print(f"{method:10s} {cnt:16.0f} {em:15.2f} {mm:13.3f}")
+        rows.append({"algorithm": method, "avg_features": round(cnt, 0),
+                     "extract_ms_per_img": round(em, 2), "match_ms_per_cmp": round(mm, 3)})
+
+    _write_csv(os.path.join(RESULTS, "exp5_socofing_latency.csv"), rows)
+
+    # Project 1:N identification latency = extract(query) + N * match, for growing N
+    Ns = [100, 1000, 6000, 60000]
+    print(f"\n--- Projected 1:N identification time per query (extract + N x match) ---")
+    print(f"{'N':>8s} " + " ".join(f"{m:>12s}" for m in ['SIFT(s)', 'Minutiae(s)']))
+    proj = {m: [] for m in ["SIFT", "Minutiae"]}
+    for N in Ns:
+        vals = []
+        for method in ["SIFT", "Minutiae"]:
+            em, mm = timings[method]
+            sec = (em + N * mm) / 1000.0
+            proj[method].append(sec)
+            vals.append(sec)
+        print(f"{N:>8d} " + " ".join(f"{v:>12.2f}" for v in vals))
+
+    plt.figure(figsize=(8, 6))
+    for method in ["SIFT", "Minutiae"]:
+        plt.plot(Ns, proj[method], marker="o", label=method)
+    plt.xscale("log"); plt.yscale("log")
+    plt.xlabel("Gallery size N (log)", fontweight="bold")
+    plt.ylabel("Identification time per query (s, log)", fontweight="bold")
+    plt.title("Exp 5: 1:N identification cost vs gallery size (SOCOFing)", fontweight="bold")
+    plt.legend(); plt.grid(True, which="both", linestyle="--", alpha=0.5)
+    plt.tight_layout()
+    fig = os.path.join(FIGURES, "exp5_latency_scaling.png")
+    plt.savefig(fig, dpi=150); plt.close()
+    print(f"\nSaved: results/exp5_socofing_latency.csv\nSaved: {fig}")
+
+    altered = glob.glob(os.path.join(SOCO_DIR, "Altered*", "**", "*.BMP"), recursive=True)
+    if not altered:
+        print("\n[Accuracy] Skipped: download the SOCOFing 'Altered' folder (genuine pairs)")
+        print("           to fingerprints/Altered-* to enable the Rank-1 / identification study.")
+    else:
+        print(f"\n[Accuracy] Found {len(altered)} altered images — accuracy study will be added next.")
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp", type=int, choices=[1, 2, 3, 4])
+    parser.add_argument("--exp", type=int, choices=[1, 2, 3, 4, 5])
     parser.add_argument("--all", action="store_true")
     args = parser.parse_args()
 
-    runners = {1: experiment_1, 2: experiment_2, 3: experiment_3, 4: experiment_4}
+    runners = {1: experiment_1, 2: experiment_2, 3: experiment_3, 4: experiment_4, 5: experiment_5}
     if args.all:
-        for i in [1, 2, 3, 4]:
+        for i in [1, 2, 3, 4, 5]:
             runners[i]()
     elif args.exp:
         runners[args.exp]()
     else:
-        print("Select experiment: 1=Preprocessing(SIFT)  2=Generalization  3=Algo x DB  4=Scoring")
+        print("Select: 1=Preprocessing 2=Generalization 3=Algo x DB 4=Scoring 5=SOCOFing(SIFT vs Minutiae)")
         choice = input("Experiment number: ").strip()
         runners.get(int(choice), lambda: print("Invalid"))() if choice.isdigit() else print("Invalid")
 
