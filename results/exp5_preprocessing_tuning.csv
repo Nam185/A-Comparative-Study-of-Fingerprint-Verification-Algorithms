@@ -1,0 +1,9 @@
+method,candidate,eer_pct,genuine_avg,imposter_avg
+SIFT,x2+C1,0.0,635.86,10.25
+SIFT,x3+C1,0.0,835.24,13.04
+SIFT,x3+C1G,0.0,386.84,7.97
+SIFT,x3+C2,0.0,797.08,12.01
+Minutiae,x2+C1,0.0,46.96,4.33
+Minutiae,x3+C1,0.0,75.04,4.15
+Minutiae,x3+C1G,0.0,48.44,4.46
+Minutiae,x3+C2,0.0,74.71,4.08

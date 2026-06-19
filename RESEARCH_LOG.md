@@ -329,3 +329,22 @@ DB1_B, preprocessing-combo EER bars (Exp 1).
   verification matters, but the inlier *count* must be kept.
 - **Decision:** keep **S3 (RANSAC inlier count)** as the production score. Negative result for S4
   recorded (a stated goal of the experiment).
+
+### Iteration 5 — 2026-06-20 — Exp 5: Real-world scalability (SOCOFing, SIFT vs Minutiae)
+- **What changed:** new study on a LARGE real dataset (SOCOFing: 600 subjects / 6000 prints +
+  synthetically Altered Easy/Medium/Hard). Added `core/minutiae_native.py` (dedicated minutiae
+  matcher: orientation + local-structure descriptor + RANSAC, NO SIFT descriptors) and Exp 5:
+  per-method preprocessing tuning (with upscale), latency/scaling, and 1:N accuracy by difficulty.
+  CSVs: `exp5_preprocessing_tuning/_latency/_accuracy.csv`; figures: `exp5_latency_scaling.png`,
+  `exp5_accuracy_vs_difficulty.png`. Note: SOCOFing is gitignored (noncommercial-research licence).
+- **MEASURED facts:** images tiny (~96x103 px) -> upscale needed. Latency: SIFT match 15.1 ms vs
+  Minutiae **0.59 ms (~25x faster)**; SIFT ~1292 keypoints vs Minutiae ~141. Accuracy at
+  gallery=100: **both 100% Rank-1 on Easy/Medium/Hard** (genuine>>impostor; EER 0% for every
+  preprocessing candidate). Tuning therefore picked the cheapest pipeline (x2+C1) for both.
+  1:N projection: at N=60000, SIFT ~17 min/query vs Minutiae ~33 s.
+- **Interpretation:** accuracy saturates -> the differentiator is SPEED -> Minutiae wins for the
+  large-N real-world problem. Tiny images did not break accuracy after upscaling.
+- **Decision:** for large-gallery 1:N, recommend the **dedicated Minutiae matcher** (ties SIFT on
+  accuracy, ~25x faster). SIFT only when gallery is small / max robustness needed.
+- **Limitation:** 100-gallery saturates accuracy; larger gallery needed to rank on accuracy, but
+  SIFT is too slow to evaluate there (which itself proves the scalability point).

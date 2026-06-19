@@ -15,6 +15,7 @@ import os
 import sys
 import csv
 import glob
+import re
 import argparse
 from time import perf_counter
 import cv2
@@ -345,107 +346,180 @@ def experiment_4():
     return rows
 
 
-# ============================== EXPERIMENT 5 (SOCOFing, large 1:N) ==============================
-SOCO_DIR = os.path.join(BASE_DIR, "fingerprints")
-SOCO_UPSCALE = 3  # SOCOFing images are tiny (~96x103 px) -> upscale before processing
+# ============================== EXPERIMENT 5 (SOCOFing, large real 1:N) ==============================
+SOCO_REAL = os.path.join(BASE_DIR, "fingerprints", "SOCOFing", "Real")
+_SOCO_ALT = os.path.join(BASE_DIR, "fingerprints", "SOCOFing", "Altered")
+SOCO_ALT = {d: os.path.join(_SOCO_ALT, f"Altered-{d}") for d in ["Easy", "Medium", "Hard"]}
+# Candidate preprocessing pipelines tuned PER METHOD on SOCOFing (label, upscale, combo)
+SOCO_CANDIDATES = [("x2+C1", 2, "C1"), ("x3+C1", 3, "C1"), ("x3+C1G", 3, "C1+G"), ("x3+C2", 3, "C2")]
 
 
-def _soco_prep(path, method):
-    """Per-method best preprocessing for SOCOFing (upscale + the method's own combo)."""
-    img = read_gray(path)
-    img = cv2.resize(img, None, fx=SOCO_UPSCALE, fy=SOCO_UPSCALE, interpolation=cv2.INTER_CUBIC)
-    if method == "SIFT":
-        return COMBOS["C1"](img)        # SIFT's best combo from the FVC study
-    return COMBOS["C1+G"](img)          # Minutiae's best combo (Gabor) from the FVC study
+def _soco_id2alt(difficulty):
+    """Map identity -> one altered image path for the given difficulty level."""
+    out = {}
+    for a in glob.glob(os.path.join(SOCO_ALT[difficulty], "*.BMP")):
+        idt = _soco_identity(a)
+        if idt not in out:
+            out[idt] = a
+    return out
 
 
-def _soco_feature(path, method):
-    enh = _soco_prep(path, method)
+def _soco_identity(path):
+    """'100__M_Left_index_finger_CR.BMP' -> '100__M_Left_index_finger' (strip alteration tag)."""
+    return re.sub(r"_(CR|Obl|Zcut)$", "", os.path.basename(path)[:-4])
+
+
+def _soco_real_path(identity):
+    return os.path.join(SOCO_REAL, identity + ".BMP")
+
+
+def _soco_extract(path, method, cfg):
+    """cfg = (label, upscale, combo_key). Upscale the tiny image, then the method's combo."""
+    _, upscale, combo_key = cfg
+    img = cv2.resize(read_gray(path), None, fx=upscale, fy=upscale, interpolation=cv2.INTER_CUBIC)
+    enh = COMBOS[combo_key](img)
     return sift_features(enh) if method == "SIFT" else MN.minutiae_features(enh)
 
 
-def _soco_match(method):
+def _soco_matchfn(method):
     return (lambda a, b: match(a, b, scoring="S3")) if method == "SIFT" else MN.match
 
 
-def experiment_5(sample=120):
-    """SOCOFing: SIFT vs Minutiae for a LARGE 1:N gallery. Speed-at-scale is the focus.
-
-    Accuracy needs genuine pairs (Real vs Altered); if the Altered folder is absent the
-    accuracy part is skipped and only the latency / scaling study is produced.
+def experiment_5(tune_n=80, gallery=100, queries=100):
+    """SOCOFing SIFT vs Minutiae on a large REAL 1:N gallery.
+    (B) tune each method's own preprocessing, (A) latency + scaling,
+    (C) 1:N accuracy across alteration difficulty (Easy/Medium/Hard).
     """
     seed = set_seed()
-    real = sorted(glob.glob(os.path.join(SOCO_DIR, "Real", "*.BMP")))
+    real = sorted(glob.glob(os.path.join(SOCO_REAL, "*.BMP")))
     if not real:
-        print("SOCOFing 'Real' folder not found under fingerprints/Real. Skipping Exp 5.")
+        print("SOCOFing Real not found under fingerprints/SOCOFing/Real. Skipping Exp 5.")
         return
+    # identity -> altered path, per difficulty
+    alt_by_diff = {d: _soco_id2alt(d) for d in ["Easy", "Medium", "Hard"]}
+    valid_ids = sorted(i for i in alt_by_diff["Hard"] if os.path.exists(_soco_real_path(i))
+                       and i in alt_by_diff["Easy"] and i in alt_by_diff["Medium"])
     print(f"\n=== EXPERIMENT 5: SOCOFing SIFT vs Minutiae (real, large 1:N) | seed={seed} ===")
-    print(f"Gallery available: {len(real)} real fingerprints (600 subjects x 10 fingers).")
-    print(f"Each algorithm uses its OWN best preprocessing (upscale x{SOCO_UPSCALE}).\n")
+    print(f"Real gallery available: {len(real)} | usable identities (Real+Easy+Med+Hard): {len(valid_ids)}\n")
 
-    paths = real[:sample]
-    rows = []
-    timings = {}
-    print(f"{'algo':10s} {'avg minutiae/kp':>16s} {'extract ms/img':>15s} {'match ms/cmp':>13s}")
+    matchfn = {m: _soco_matchfn(m) for m in ["SIFT", "Minutiae"]}
+
+    # ---------- (B) Per-method preprocessing tuning (on the HARD set, where it matters) ----------
+    print("--- (B) Preprocessing tuning per method (EER on Altered-Hard validation subset) ---")
+    print(f"{'method':10s} {'candidate':8s} {'EER%':>7s} {'genAvg':>8s} {'impAvg':>8s}")
+    best_cfg, best_thr = {}, {}
+    tune_ids = valid_ids[:tune_n]
+    hard = alt_by_diff["Hard"]
+    tune_rows = []
     for method in ["SIFT", "Minutiae"]:
+        results = []
+        for cfg in SOCO_CANDIDATES:
+            realf = {i: _soco_extract(_soco_real_path(i), method, cfg) for i in tune_ids}
+            altf = {i: _soco_extract(hard[i], method, cfg) for i in tune_ids}
+            gen = [matchfn[method](realf[i], altf[i]) for i in tune_ids]
+            imp = [matchfn[method](altf[i], realf[tune_ids[(k + 1) % len(tune_ids)]])
+                   for k, i in enumerate(tune_ids)]
+            e, thr = eer(gen, imp)
+            results.append((e, thr, cfg))
+            print(f"{method:10s} {cfg[0]:8s} {e:7.2f} {np.mean(gen):8.1f} {np.mean(imp):8.1f}")
+            tune_rows.append({"method": method, "candidate": cfg[0], "eer_pct": round(e, 2),
+                              "genuine_avg": round(float(np.mean(gen)), 2),
+                              "imposter_avg": round(float(np.mean(imp)), 2)})
+        results.sort(key=lambda r: (r[0], r[2][1]))   # tie-break: lower EER, then cheaper upscale
+        best_cfg[method], best_thr[method] = results[0][2], results[0][1]
+        print(f"  -> {method} best preprocessing: {best_cfg[method][0]} "
+              f"(EER {results[0][0]:.2f}%, threshold {best_thr[method]:.1f})\n")
+    _write_csv(os.path.join(RESULTS, "exp5_preprocessing_tuning.csv"), tune_rows)
+
+    # ---------- (A) Latency with each method's tuned preprocessing ----------
+    print("--- (A) Latency (each method at its tuned best preprocessing) ---")
+    print(f"{'method':10s} {'avg feats':>10s} {'extract ms':>11s} {'match ms':>9s}")
+    timings, lat_rows = {}, []
+    speed_paths = real[:120]
+    for method in ["SIFT", "Minutiae"]:
+        cfg = best_cfg[method]
         feats, ext_ms = [], []
-        for p in paths:
-            t0 = perf_counter()
-            f = _soco_feature(p, method)
-            ext_ms.append((perf_counter() - t0) * 1000)
+        for p in speed_paths:
+            t0 = perf_counter(); f = _soco_extract(p, method, cfg); ext_ms.append((perf_counter()-t0)*1000)
             feats.append(f)
-        mfn = _soco_match(method)
+        mfn = matchfn[method]
         match_ms = []
         for i in range(len(feats) - 1):
-            t0 = perf_counter()
-            mfn(feats[i], feats[i + 1])          # different fingers -> realistic impostor cost
-            match_ms.append((perf_counter() - t0) * 1000)
-        if method == "SIFT":
-            cnt = np.mean([f["n_kp"] for f in feats])
-        else:
-            cnt = np.mean([f["n_minutiae"] for f in feats])
+            t0 = perf_counter(); mfn(feats[i], feats[i+1]); match_ms.append((perf_counter()-t0)*1000)
+        cnt = np.mean([f["n_kp"] if method == "SIFT" else f["n_minutiae"] for f in feats])
         em, mm = float(np.mean(ext_ms)), float(np.mean(match_ms))
         timings[method] = (em, mm)
-        print(f"{method:10s} {cnt:16.0f} {em:15.2f} {mm:13.3f}")
-        rows.append({"algorithm": method, "avg_features": round(cnt, 0),
-                     "extract_ms_per_img": round(em, 2), "match_ms_per_cmp": round(mm, 3)})
+        print(f"{method:10s} {cnt:10.0f} {em:11.2f} {mm:9.3f}")
+        lat_rows.append({"algorithm": method, "preprocessing": cfg[0], "avg_features": round(cnt, 0),
+                         "extract_ms_per_img": round(em, 2), "match_ms_per_cmp": round(mm, 3)})
+    _write_csv(os.path.join(RESULTS, "exp5_socofing_latency.csv"), lat_rows)
 
-    _write_csv(os.path.join(RESULTS, "exp5_socofing_latency.csv"), rows)
-
-    # Project 1:N identification latency = extract(query) + N * match, for growing N
     Ns = [100, 1000, 6000, 60000]
-    print(f"\n--- Projected 1:N identification time per query (extract + N x match) ---")
-    print(f"{'N':>8s} " + " ".join(f"{m:>12s}" for m in ['SIFT(s)', 'Minutiae(s)']))
-    proj = {m: [] for m in ["SIFT", "Minutiae"]}
-    for N in Ns:
-        vals = []
-        for method in ["SIFT", "Minutiae"]:
-            em, mm = timings[method]
-            sec = (em + N * mm) / 1000.0
-            proj[method].append(sec)
-            vals.append(sec)
-        print(f"{N:>8d} " + " ".join(f"{v:>12.2f}" for v in vals))
-
+    proj = {m: [(timings[m][0] + N * timings[m][1]) / 1000.0 for N in Ns] for m in timings}
+    print(f"\n  1:N identification time per query (extract + N x match):")
+    print("  " + f"{'N':>8s} {'SIFT(s)':>10s} {'Minutiae(s)':>12s}")
+    for k, N in enumerate(Ns):
+        print("  " + f"{N:>8d} {proj['SIFT'][k]:>10.2f} {proj['Minutiae'][k]:>12.2f}")
     plt.figure(figsize=(8, 6))
-    for method in ["SIFT", "Minutiae"]:
-        plt.plot(Ns, proj[method], marker="o", label=method)
+    for m in ["SIFT", "Minutiae"]:
+        plt.plot(Ns, proj[m], marker="o", label=m)
     plt.xscale("log"); plt.yscale("log")
     plt.xlabel("Gallery size N (log)", fontweight="bold")
     plt.ylabel("Identification time per query (s, log)", fontweight="bold")
     plt.title("Exp 5: 1:N identification cost vs gallery size (SOCOFing)", fontweight="bold")
     plt.legend(); plt.grid(True, which="both", linestyle="--", alpha=0.5)
     plt.tight_layout()
-    fig = os.path.join(FIGURES, "exp5_latency_scaling.png")
-    plt.savefig(fig, dpi=150); plt.close()
-    print(f"\nSaved: results/exp5_socofing_latency.csv\nSaved: {fig}")
+    plt.savefig(os.path.join(FIGURES, "exp5_latency_scaling.png"), dpi=150); plt.close()
 
-    altered = glob.glob(os.path.join(SOCO_DIR, "Altered*", "**", "*.BMP"), recursive=True)
-    if not altered:
-        print("\n[Accuracy] Skipped: download the SOCOFing 'Altered' folder (genuine pairs)")
-        print("           to fingerprints/Altered-* to enable the Rank-1 / identification study.")
-    else:
-        print(f"\n[Accuracy] Found {len(altered)} altered images — accuracy study will be added next.")
-    return rows
+    # ---------- (C) 1:N accuracy across alteration difficulty ----------
+    print(f"\n--- (C) 1:N accuracy: enroll {gallery} Real, query {queries} altered (Rank-1 / IDrate %) ---")
+    gal_ids = valid_ids[:gallery]
+    q_ids = valid_ids[:queries]
+    print(f"{'method':10s} {'difficulty':10s} {'Rank1%':>7s} {'IDrate%':>8s}")
+    acc_rows = []
+    acc_matrix = {m: {} for m in ["SIFT", "Minutiae"]}
+    for method in ["SIFT", "Minutiae"]:
+        cfg, thr = best_cfg[method], best_thr[method]
+        gallery_feats = {i: _soco_extract(_soco_real_path(i), method, cfg) for i in gal_ids}
+        mfn = matchfn[method]
+        for diff in ["Easy", "Medium", "Hard"]:
+            id2a = alt_by_diff[diff]
+            correct = correct_thr = 0
+            for tid in q_ids:
+                qf = _soco_extract(id2a[tid], method, cfg)
+                best_id, best_s = None, -1.0
+                for gid, gf in gallery_feats.items():
+                    s = mfn(qf, gf)
+                    if s > best_s:
+                        best_s, best_id = s, gid
+                if best_id == tid:
+                    correct += 1
+                    if best_s >= thr:
+                        correct_thr += 1
+            rank1 = correct / len(q_ids) * 100
+            idrate = correct_thr / len(q_ids) * 100
+            acc_matrix[method][diff] = rank1
+            print(f"{method:10s} {diff:10s} {rank1:7.1f} {idrate:8.1f}")
+            acc_rows.append({"method": method, "preprocessing": cfg[0], "difficulty": diff,
+                             "gallery": len(gal_ids), "queries": len(q_ids), "threshold": round(thr, 1),
+                             "rank1_acc_pct": round(rank1, 1), "identification_rate_pct": round(idrate, 1)})
+    _write_csv(os.path.join(RESULTS, "exp5_socofing_accuracy.csv"), acc_rows)
+
+    # Accuracy-vs-difficulty figure
+    plt.figure(figsize=(8, 6))
+    diffs = ["Easy", "Medium", "Hard"]
+    for method in ["SIFT", "Minutiae"]:
+        plt.plot(diffs, [acc_matrix[method][d] for d in diffs], marker="o", label=method)
+    plt.ylabel("Rank-1 accuracy (%)", fontweight="bold")
+    plt.xlabel("Alteration difficulty", fontweight="bold")
+    plt.title(f"Exp 5: Rank-1 vs alteration difficulty (gallery={gallery}, SOCOFing)", fontweight="bold")
+    plt.ylim(0, 105); plt.legend(); plt.grid(axis="y", linestyle="--", alpha=0.6)
+    plt.tight_layout()
+    plt.savefig(os.path.join(FIGURES, "exp5_accuracy_vs_difficulty.png"), dpi=150); plt.close()
+
+    print("\nSaved: exp5_preprocessing_tuning.csv, exp5_socofing_latency.csv, exp5_socofing_accuracy.csv")
+    print("Saved: results/figures/exp5_latency_scaling.png, exp5_accuracy_vs_difficulty.png")
+    return acc_rows
 
 
 def main():

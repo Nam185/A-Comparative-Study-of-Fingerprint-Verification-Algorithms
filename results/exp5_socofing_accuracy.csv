@@ -1,0 +1,7 @@
+method,preprocessing,difficulty,gallery,queries,threshold,rank1_acc_pct,identification_rate_pct
+SIFT,x2+C1,Easy,100,100,249.0,100.0,100.0
+SIFT,x2+C1,Medium,100,100,249.0,100.0,100.0
+SIFT,x2+C1,Hard,100,100,249.0,100.0,100.0
+Minutiae,x2+C1,Easy,100,100,10.0,100.0,100.0
+Minutiae,x2+C1,Medium,100,100,10.0,100.0,100.0
+Minutiae,x2+C1,Hard,100,100,10.0,100.0,100.0
