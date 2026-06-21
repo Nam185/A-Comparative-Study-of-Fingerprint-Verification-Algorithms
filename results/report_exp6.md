@@ -50,8 +50,22 @@ here. The reason is the **type of genuine pair**:
 
 SIFT survives this because its rich gradient descriptors plus a homography (RANSAC) model the real
 geometric distortion, while a few-nearest-neighbour minutiae descriptor is too fragile when minutiae
-are missing or added. Loosening the matcher's thresholds did **not** help (EER stayed ~33–36 %),
-confirming this is a structural limitation, not a tuning artefact.
+are missing or added.
+
+**Robustness check (to rule out a scale/configuration artefact).** Because the matcher's geometric
+parameters were first set on the upscaled SOCOFing images (~192 px) and FVC images are larger
+(374–560 px), we verified the result is not merely a mis-scaled configuration:
+1. *Extraction is healthy on FVC* — it yields ~100–280 minutiae per image (avg ~150), the expected
+   range, not a degenerate few.
+2. *Loosening the geometry* (Lowe ratio up to 0.95, RANSAC reprojection threshold up to 20 px) left
+   EER at ~33–36 %.
+3. *A scale-invariant descriptor* (neighbour distances normalised by their mean, so the descriptor is
+   independent of image size) gave EER ~35–46 %, still with genuine ≈ impostor.
+
+Across all of these the genuine and impostor score distributions stayed overlapped, so the failure is
+a **structural limitation of this simple matcher** — it loses minutiae correspondence when the two
+captures differ — **not** a mis-scaled parameter. It is, however, **not** a limitation of minutiae
+methodology in general (see Limitations).
 
 This result also **re-frames Experiment 5 honestly**: the Minutiae matcher's apparent accuracy on
 SOCOFing was a property of the near-duplicate test pairs, not of robustness to real variation.
