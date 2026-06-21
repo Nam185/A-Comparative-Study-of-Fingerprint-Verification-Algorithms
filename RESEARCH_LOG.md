@@ -348,3 +348,21 @@ DB1_B, preprocessing-combo EER bars (Exp 1).
   accuracy, ~25x faster). SIFT only when gallery is small / max robustness needed.
 - **Limitation:** 100-gallery saturates accuracy; larger gallery needed to rank on accuracy, but
   SIFT is too slow to evaluate there (which itself proves the scalability point).
+
+### Iteration 6 — 2026-06-21 — Exp 6: Best-vs-best ACCURACY on FVC B (SIFT vs Minutiae-native)
+- **What changed:** accuracy comparison on FVC2002 B (real multi-impression, hard, EER not
+  saturated) using the DEDICATED minutiae matcher (theta+geometry, `core/minutiae_native.py`,
+  best preprocessing C2) vs SIFT (C1). Complements Exp 5 (speed on SOCOFing). CSV:
+  `exp6_accuracy_fvcB.csv`; figure: `exp6_accuracy_fvcB.png`; report: `report_exp6.md`.
+- **MEASURED facts (1:1 EER):** SIFT mean **25.91%** vs Minutiae-native **44.37%** (DB1 16.67 vs
+  33.25; DB2 6.19 vs 41.75; DB3 32.54 vs 48.02; DB4 48.25 vs 54.44). Minutiae genuine avg ~4.6 vs
+  impostor ~3.9 -> almost NO separation (near random). Loosening ratio/RANSAC threshold did not
+  help (EER stayed 33-36%) -> structural, not a tuning artefact.
+- **Interpretation:** FVC genuine = two independent real captures (rotation/distortion/partial
+  overlap) -> simple minutiae correspondence breaks; SIFT's descriptors+homography survive.
+  **Re-frames Exp 5 honestly:** SOCOFing's 100% minutiae accuracy was because Real-vs-Altered are
+  near-duplicates, NOT robustness.
+- **Complete real-world 1:N picture:** accuracy-under-real-variation -> SIFT (Exp 6); speed-at-scale
+  -> Minutiae (Exp 5). Neither ideal alone; production needs robust minutiae descriptor (MCC) + index.
+- **Limitation:** our minutiae matcher is simplified from scratch; NBIS Bozorth3/MCC reach single-
+  digit EER on FVC, so ~44% reflects the simple implementation, not minutiae methodology's ceiling.

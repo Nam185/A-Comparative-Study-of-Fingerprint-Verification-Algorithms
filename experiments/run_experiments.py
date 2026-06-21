@@ -522,20 +522,72 @@ def experiment_5(tune_n=80, gallery=100, queries=100):
     return acc_rows
 
 
+# ============================== EXPERIMENT 6 (best-vs-best accuracy on FVC B) ==============================
+def experiment_6():
+    """Best-vs-best ACCURACY: SIFT vs the DEDICATED Minutiae matcher (theta + geometry,
+    not SIFT descriptors) on FVC2002 set B (small but hard, real multi-impression data).
+    Complements Exp 5 (speed on the large SOCOFing gallery)."""
+    seed = set_seed()
+    print(f"\n=== EXPERIMENT 6: Best-vs-best accuracy on FVC B (SIFT vs Minutiae-native) | seed={seed} ===")
+    print("FVC B has multiple REAL impressions per finger and hard imagery -> EER is meaningful here.\n")
+
+    # (B) pick the dedicated matcher's own best preprocessing on DB1_B (1:1 EER)
+    print("--- Minutiae-native preprocessing selection on DB1_B ---")
+    print(f"{'combo':6s} {'EER%':>7s} {'genAvg':>8s} {'impAvg':>8s}")
+    best_min, best_e = "C1", 100.0
+    for combo in ["C1", "C1+G", "C2"]:
+        feat, _ = _build_feat_fn("DB1_B", COMBOS[combo], MN.minutiae_features)
+        gen, imp = collect_scores(feat, MN.match)
+        e, _ = eer(gen, imp)
+        print(f"{combo:6s} {e:7.2f} {np.mean(gen):8.1f} {np.mean(imp):8.1f}")
+        if e < best_e:
+            best_e, best_min = e, combo
+    print(f"  -> Minutiae-native best preprocessing: {best_min}\n")
+
+    # (A) per-DB 1:1 EER, SIFT (C1) vs Minutiae-native (best_min)
+    methods = [("SIFT", COMBOS["C1"], EXTRACTORS["SIFT"], lambda a, b: match(a, b, scoring="S3")),
+               ("Minutiae-native", COMBOS[best_min], MN.minutiae_features, MN.match)]
+    eer_matrix = {db: {} for db in DBS}
+    rows = []
+    print(f"{'DB':7s} {'method':16s} {'EER%':>7s} {'optThr':>7s} {'genAvg':>8s} {'impAvg':>8s}")
+    for db in DBS:
+        for name, combo_fn, extractor, mfn in methods:
+            feat, _ = _build_feat_fn(db, combo_fn, extractor)
+            gen, imp = collect_scores(feat, mfn)
+            e, thr = eer(gen, imp)
+            eer_matrix[db][name] = e
+            print(f"{db:7s} {name:16s} {e:7.2f} {thr:7.1f} {np.mean(gen):8.1f} {np.mean(imp):8.1f}")
+            rows.append({"db": db, "difficulty": DB_DIFFICULTY[db], "method": name,
+                         "eer_pct": round(e, 2), "optimal_threshold": round(float(thr), 2),
+                         "genuine_avg": round(float(np.mean(gen)), 2),
+                         "imposter_avg": round(float(np.mean(imp)), 2)})
+
+    _write_csv(os.path.join(RESULTS, "exp6_accuracy_fvcB.csv"), rows)
+    fig = os.path.join(FIGURES, "exp6_accuracy_fvcB.png")
+    _grouped_bar(eer_matrix, DBS, ["SIFT", "Minutiae-native"], "EER (%)",
+                 "Exp 6: 1:1 EER on FVC B - SIFT vs dedicated Minutiae matcher", fig, group_by="db")
+    print(f"\nMean EER over 4 DBs: SIFT {np.mean([eer_matrix[d]['SIFT'] for d in DBS]):.2f}%  |  "
+          f"Minutiae-native {np.mean([eer_matrix[d]['Minutiae-native'] for d in DBS]):.2f}%")
+    print(f"Saved: results/exp6_accuracy_fvcB.csv\nSaved: {fig}")
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp", type=int, choices=[1, 2, 3, 4, 5])
+    parser.add_argument("--exp", type=int, choices=[1, 2, 3, 4, 5, 6])
     parser.add_argument("--all", action="store_true")
     args = parser.parse_args()
 
-    runners = {1: experiment_1, 2: experiment_2, 3: experiment_3, 4: experiment_4, 5: experiment_5}
+    runners = {1: experiment_1, 2: experiment_2, 3: experiment_3, 4: experiment_4,
+               5: experiment_5, 6: experiment_6}
     if args.all:
-        for i in [1, 2, 3, 4, 5]:
+        for i in [1, 2, 3, 4, 5, 6]:
             runners[i]()
     elif args.exp:
         runners[args.exp]()
     else:
-        print("Select: 1=Preprocessing 2=Generalization 3=Algo x DB 4=Scoring 5=SOCOFing(SIFT vs Minutiae)")
+        print("Select: 1=Preprocessing 2=Generalization 3=Algo x DB 4=Scoring "
+              "5=SOCOFing speed 6=FVC accuracy(SIFT vs Minutiae-native)")
         choice = input("Experiment number: ").strip()
         runners.get(int(choice), lambda: print("Invalid"))() if choice.isdigit() else print("Invalid")
 
