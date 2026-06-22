@@ -66,6 +66,9 @@ def main():
         path = img_path(db, fid, imp)
     else:
         path = arg
+    base = os.path.splitext(os.path.basename(path))[0]
+    parent = os.path.basename(os.path.dirname(path))
+    slug = f"{parent}_{base}" if parent else base
     img = read_gray(path)
     if img is None:
         print(f"Cannot read {path}"); return
@@ -98,7 +101,7 @@ def main():
     fig.suptitle(f"Feature Extraction Showcase - {os.path.basename(path)}",
                  fontsize=15, fontweight="bold")
     fig.tight_layout(rect=[0, 0, 1, 0.97])
-    out = os.path.join(FIGDIR, "feature_extraction_showcase.png")
+    out = os.path.join(FIGDIR, f"feature_extraction_showcase_{slug}.png")
     fig.savefig(out, dpi=150); plt.close(fig)
 
     # standalone, larger minutiae image (the most important for the traditional method)
@@ -106,7 +109,7 @@ def main():
     plt.title(f"Minutiae extraction (Crossing Number)\n{n_end} endings (red), {n_bif} bifurcations (blue), orientation (green)",
               fontsize=11, fontweight="bold")
     plt.axis("off"); plt.tight_layout()
-    out2 = os.path.join(FIGDIR, "feature_extraction_minutiae.png")
+    out2 = os.path.join(FIGDIR, f"feature_extraction_minutiae_{slug}.png")
     plt.savefig(out2, dpi=150); plt.close()
 
     print(f"\nSaved: {out}\nSaved: {out2}")

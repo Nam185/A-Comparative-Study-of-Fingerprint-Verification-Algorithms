@@ -1,8 +1,12 @@
-# Feature Extraction — Report Text
+# Feature Extraction & Matching — Report Text
 
-*Ready-to-paste English text. Figures: `results/figures/feature_extraction_showcase.png`
-(all four algorithms side by side) and `feature_extraction_minutiae.png` (close-up).
-Reproduce with `python experiments/visualize_extraction.py DB1_B/101_1.tif`.*
+*Ready-to-paste English text. Figures (in `results/figures/`):
+`feature_extraction_showcase_DB1_B_101_1.png` (all four algorithms side by side),
+`feature_extraction_showcase_DB2_B_101_1.png` (clean input),
+`feature_extraction_showcase_DB3_B_101_1.png` (hard/dark input),
+`feature_matching_genuine_vs_impostor.png` (genuine vs impostor matches).
+Reproduce: `python experiments/visualize_extraction.py DB1_B/101_1.tif` and
+`python experiments/visualize_matching.py DB2_B 101`.*
 
 ---
 
@@ -43,3 +47,31 @@ Crossing Number method, mitigated by the ROI mask and spurious-minutiae removal.
 substantial, sensible counts (≈1 400–1 500 keypoints; ≈150 minutiae), confirming that all four
 extractors run correctly and respond to real ridge structure. This visual check is the foundation
 for trusting the downstream matching results in Experiments 1–6.
+
+## Effect of sensor quality on extraction (clean vs hard input)
+Running the same extractors on a **clean** database (DB2_B, optical 500 dpi) and a **hard** one
+(DB3_B, a dark, low-contrast capacitive sensor) makes the central finding of this study —
+*sensor/image quality dominates accuracy* — visible already at the extraction stage:
+
+- **DB2_B (clean):** the preprocessed ridges are crisp, the LBP texture map follows the ridge flow
+  cleanly, and the features sit tightly on the ridges (≈2 435 SIFT keypoints, 321 minutiae). This is
+  what "extraction working well" looks like.
+- **DB3_B (hard, dark):** CLAHE has to amplify a weak signal, which also amplifies background noise.
+  The LBP map becomes speckled, SIFT/ORB keypoints spill into the noisy background, and the minutiae
+  set gains many **spurious bifurcations** clustered in noisy regions (92 vs 25 on DB2). The feature
+  *counts* stay comparable, but their *quality and repeatability* drop — which is exactly why DB3
+  matching is far worse (1:1 EER ≈ 32 % vs ≈ 6 % on DB2). In other words, the accuracy gap between
+  sensors originates in the extraction stage, not in the matcher.
+
+## Matching: separating genuine from impostor
+Extraction alone is not enough — the system must *discriminate*. Figure
+*feature_matching_genuine_vs_impostor* draws the geometrically consistent (RANSAC-verified) SIFT
+matches for two pairs from DB2_B:
+
+- **Genuine pair** (two impressions of the same finger): **562 consistent matches**, and the lines
+  are roughly parallel — a coherent geometric transform between the two prints.
+- **Impostor pair** (two different fingers): only **5 consistent matches**, scattered and incoherent.
+
+This ~100× gap is the visual proof that the pipeline does not merely "find points" but actually
+**separates same-finger from different-finger pairs**, which is the basis of every EER and Rank-1
+number reported in this study.
