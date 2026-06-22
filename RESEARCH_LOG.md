@@ -366,3 +366,22 @@ DB1_B, preprocessing-combo EER bars (Exp 1).
   -> Minutiae (Exp 5). Neither ideal alone; production needs robust minutiae descriptor (MCC) + index.
 - **Limitation:** our minutiae matcher is simplified from scratch; NBIS Bozorth3/MCC reach single-
   digit EER on FVC, so ~44% reflects the simple implementation, not minutiae methodology's ceiling.
+
+### Iteration 7 — 2026-06-21 — ROI segmentation fix (re-syncs Exp 2/3/5/6 minutiae numbers)
+- **What changed:** the variance-only ROI mask wrongly kept textured/striped background (esp. the
+  DB3 capacitive sensor), so minutiae were detected outside the fingerprint (visible in the
+  extraction showcase). Upgraded the mask to require variance **and** gradient-orientation coherence,
+  then keep the largest connected component. Applied to `core/minutiae_native.py`, `core/features.py`,
+  `apps/minutiae_app.py`. All minutiae-based experiments were re-run.
+- **MEASURED effect (minutiae only; SIFT/ORB/LBP unchanged):**
+  - Exp 6 (native matcher): mean EER 44.4% -> **49.3%** — still genuine ≈ impostor, so the
+    "structural limitation" conclusion is reinforced (cleaner ROI did not help).
+  - Exp 5 (SOCOFing): Minutiae best preprocessing now x3+C1G; match ~14× faster than SIFT (was 25×,
+    because the ×3 pipeline keeps more minutiae); accuracy still ~100%.
+  - Exp 3 (hybrid matcher): Minutiae mean EER 32.08 -> 31.63; **match latency 4.53 -> 1.72 ms**
+    (cleaner ROI -> fewer minutiae); on DB3 Minutiae now leads 1:N Rank-1 (62.9% vs SIFT 54.3%).
+  - Exp 2: **corrects an earlier finding** — the apparent "Gabor helps Minutiae (−2.46 pp)" was an
+    artefact of the leaky ROI (Gabor was suppressing spurious *background* minutiae). With proper
+    segmentation Gabor's effect on Minutiae is ≈ +0.24 pp (no help), consistent with the other methods.
+- **Lesson:** validate a surprising result (Gabor uniquely helping Minutiae) before trusting it —
+  here it traced back to a segmentation bug.

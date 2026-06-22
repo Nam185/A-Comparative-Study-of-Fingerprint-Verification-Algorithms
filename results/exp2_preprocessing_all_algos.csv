@@ -17,9 +17,9 @@ DB1_B,LBP,C3,Median + HistEq,46.19,2.72,0.16,0.0,
 DB1_B,LBP,C1+G,Gaussian + CLAHE + Gabor,42.54,2.27,0.23,0.0,
 DB1_B,LBP,C2+G,Bilateral + CLAHE + Gabor,42.54,2.2,0.23,0.0,
 DB1_B,LBP,C3+G,Median + HistEq + Gabor,46.19,2.26,0.21,0.0,
-DB1_B,Minutiae,C1,Gaussian + CLAHE,21.75,24.46,0.84,276.9,276.9
-DB1_B,Minutiae,C2,Bilateral + CLAHE,21.03,24.87,1.04,275.4,275.4
-DB1_B,Minutiae,C3,Median + HistEq,20.95,17.69,0.69,237.5,237.5
-DB1_B,Minutiae,C1+G,Gaussian + CLAHE + Gabor,17.86,20.67,1.11,276.2,276.2
-DB1_B,Minutiae,C2+G,Bilateral + CLAHE + Gabor,19.6,19.87,0.98,275.9,275.9
-DB1_B,Minutiae,C3+G,Median + HistEq + Gabor,18.89,18.51,0.87,271.8,271.8
+DB1_B,Minutiae,C1,Gaussian + CLAHE,21.67,18.2,0.67,207.8,207.8
+DB1_B,Minutiae,C2,Bilateral + CLAHE,20.32,18.79,1.04,213.5,213.5
+DB1_B,Minutiae,C3,Median + HistEq,17.7,14.01,0.53,185.8,185.8
+DB1_B,Minutiae,C1+G,Gaussian + CLAHE + Gabor,17.86,19.29,1.11,248.2,248.2
+DB1_B,Minutiae,C2+G,Bilateral + CLAHE + Gabor,21.11,18.04,1.16,247.4,247.4
+DB1_B,Minutiae,C3+G,Median + HistEq + Gabor,21.43,17.23,0.98,246.9,246.9

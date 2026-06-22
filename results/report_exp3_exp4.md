@@ -24,19 +24,19 @@ See Figure *exp3_eer_algo_x_db*.
 
 | Database | SIFT | ORB | LBP | Minutiae |
 |----------|------|-----|-----|----------|
-| DB2_B (easy)        | **6.19**  | 12.94 | 46.19 | 26.19 |
-| DB1_B (average)     | **16.67** | 21.90 | 44.37 | 21.75 |
-| DB3_B (hard)        | **32.54** | 32.78 | 37.46 | 32.78 |
-| DB4_B (synthetic)   | 48.25 | **40.16** | 46.90 | 47.62 |
+| DB2_B (easy)        | **6.19**  | 12.94 | 46.19 | 25.87 |
+| DB1_B (average)     | **16.67** | 21.90 | 44.37 | 21.67 |
+| DB3_B (hard)        | **32.54** | 32.78 | 37.46 | 39.29 |
+| DB4_B (synthetic)   | 48.25 | 40.16 | 46.90 | **39.68** |
 
 ### Results — 1:N identification (Rank-1 % / identification rate %)
 
 | Database | SIFT | ORB | LBP | Minutiae |
 |----------|------|-----|-----|----------|
-| DB2_B (easy)      | **91.4 / 88.6** | 85.7 / 60.0 | 45.7 / 0.0 | 78.6 / 74.3 |
-| DB1_B (average)   | **80.0 / 72.9** | 70.0 / 51.4 | 24.3 / 1.4 | 72.9 / 42.9 |
-| DB3_B (hard)      | 54.3 / 32.9 | 44.3 / 21.4 | 50.0 / 0.0 | **57.1 / 42.9** |
-| DB4_B (synthetic) | 17.1 / 1.4 | 15.7 / 0.0 | **21.4** / 0.0 | 20.0 / 14.3 |
+| DB2_B (easy)      | **91.4 / 88.6** | 85.7 / 60.0 | 45.7 / 0.0 | 74.3 / 67.1 |
+| DB1_B (average)   | **80.0 / 72.9** | 70.0 / 51.4 | 24.3 / 1.4 | 67.1 / 40.0 |
+| DB3_B (hard)      | 54.3 / 32.9 | 44.3 / 21.4 | 50.0 / 0.0 | **62.9 / 28.6** |
+| DB4_B (synthetic) | 17.1 / 1.4 | 15.7 / 0.0 | 21.4 / 0.0 | **22.9** / 0.0 |
 
 ### Results — efficiency / latency (mean over the 4 databases)
 Latency is the second primary criterion. It splits into the one-off **feature-extraction**
@@ -47,10 +47,10 @@ hardware-dependent, the relative ordering is what matters.)
 
 | Algorithm | Mean EER (%) | Match latency (ms/comparison) | Extraction (ms/image) | 1:N query @ N=10 (ms) |
 |-----------|--------------|-------------------------------|-----------------------|------------------------|
-| SIFT      | 25.91 | 46.58 | 68.0  | ≈ 585 |
-| ORB       | 26.94 | 15.58 | 11.8  | ≈ 186 |
-| LBP       | 43.73 | **0.03** | 29.3 | ≈ 28 |
-| Minutiae  | 32.08 | 4.53  | 118.3 | ≈ 118 |
+| SIFT      | 25.91 | 46.80 | 69.6  | ≈ 537 |
+| ORB       | 26.94 | 15.77 | 10.8  | ≈ 168 |
+| LBP       | 43.73 | **0.03** | 30.6 | ≈ 31 |
+| Minutiae  | 31.63 | 1.72  | 98.3 | ≈ 116 |
 
 See Figure *exp3_eer_vs_latency* (accuracy–speed trade-off; best is lower-left). The 1:1 optimal
 threshold per (algorithm, database) is recorded in `exp3_algo_x_db_1to1.csv`.
@@ -77,19 +77,20 @@ Two findings stand out:
   chance level for 10 candidates). Classical hand-crafted features rely on real ridge structure
   that the synthetic generator does not reproduce faithfully.
 
-We also note that on the hard DB3_B the four methods converge (1:1 EER 32–37%), and **Minutiae
-slightly leads the 1:N Rank-1 (57.1%)** there; on such low-contrast capacitive images the explicit
-ridge-ending detection is competitive with SIFT. (These small leads are within the dataset's
-sampling noise; see the note in Experiment 1.)
+We also note that on the hard DB3_B, where the keypoint methods converge (1:1 EER ≈ 32–39%),
+**Minutiae actually leads the 1:N Rank-1 (62.9% vs SIFT's 54.3%)**; on such low-contrast capacitive
+images the explicit ridge-ending detection is competitive with — even ahead of — SIFT. (This lead is
+within the dataset's sampling noise; see the note in Experiment 1.)
 
 On the **latency** axis there is a clear accuracy–speed trade-off. SIFT is the most accurate but
-also the slowest to match (46.6 ms/comparison), because its enhanced images yield ~2300 keypoints
-that the brute-force matcher must compare. **ORB matches about 3× faster (15.6 ms) and enrolls
-fastest (11.8 ms/image)** for only a small accuracy loss on the realistic databases, which makes it
-the best-balanced option when the gallery is large — since 1:N cost grows as `N × match`, ORB's
-advantage compounds (e.g. for N = 10 000 templates, ≈ 156 s vs ≈ 466 s for SIFT). LBP matches almost
-instantly (0.03 ms, a single Chi-Square over a vector) but is too inaccurate to use. Minutiae has a
-moderate match time but the **slowest enrollment (118 ms/image)** because of the skeletonization step.
+also the slowest to match (46.8 ms/comparison), because its enhanced images yield ~2300 keypoints
+that the brute-force matcher must compare. **ORB matches about 3× faster (15.8 ms) and enrolls
+fastest (10.8 ms/image)** for only a small accuracy loss on the realistic databases. **The Minutiae
+matcher is even faster to match (1.7 ms/comparison)** — it compares only ~200 minutiae — but pays the
+**slowest enrollment (98 ms/image)** because of the skeletonization step. Since 1:N cost grows as
+`N × match`, the fast-matching methods (Minutiae, then ORB) scale best: e.g. for N = 10 000 templates,
+Minutiae ≈ 17 s and ORB ≈ 158 s vs ≈ 468 s for SIFT. LBP matches almost instantly (0.03 ms, a single
+Chi-Square over a vector) but is too inaccurate to use.
 
 ### Conclusion
 The two primary criteria give complementary answers. On **accuracy (EER)** SIFT is best; on

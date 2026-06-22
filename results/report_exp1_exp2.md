@@ -78,17 +78,17 @@ EER (%) per algorithm and combo on DB1_B (see Figure *exp2_generalization_eer*):
 
 | Combo | SIFT | ORB | LBP | Minutiae |
 |-------|------|-----|-----|----------|
-| C1    | 16.67 | 21.90 | 44.37 | 21.75 |
-| C2    | 16.43 | 27.62 | 42.54 | 21.03 |
-| C3    | 25.79 | 31.03 | 46.19 | 20.95 |
-| C1+G  | 16.35 | 26.83 | 42.54 | **17.86** |
-| C2+G  | 25.48 | 26.90 | 42.54 | 19.60 |
-| C3+G  | **13.81** | 25.00 | 42.54 | 18.89 |
+| C1    | 16.67 | 21.90 | 44.37 | 21.67 |
+| C2    | 16.43 | 27.62 | 42.54 | 20.32 |
+| C3    | 25.79 | 31.03 | 46.19 | **17.70** |
+| C1+G  | 16.35 | 26.83 | 42.54 | 17.86 |
+| C2+G  | 25.48 | 26.90 | 42.54 | 21.11 |
+| C3+G  | **13.81** | 25.00 | 42.54 | 21.43 |
 
 Best combo per algorithm: SIFT → C3+G (13.81%), ORB → C1 (21.90%), LBP → C2 (42.54%),
-Minutiae → C1+G (17.86%). Average Gabor effect (mean EER change over C1/C2/C3): SIFT −1.08,
-ORB −0.61, LBP −0.61, Minutiae **−2.46** percentage points. Average minutiae count is
-essentially unchanged by Gabor (C1 276.9 → C1+G 276.2).
+Minutiae → C3 (17.70%). Average Gabor effect (mean EER change over C1/C2/C3): SIFT −1.08,
+ORB −0.61, LBP −0.61, Minutiae **+0.24** percentage points (i.e. Gabor does not help any method).
+Gabor does not reduce the minutiae count either — it slightly *increases* it (C1 208 → C1+G 248).
 
 ### Discussion
 The preprocessing conclusion **does not fully transfer**: the best combo differs for each
@@ -97,22 +97,24 @@ regardless of preprocessing, confirming that a global-texture descriptor without
 alignment is fundamentally unsuited to fingerprint identity — no amount of front-end filtering
 rescues it.
 
-The most interesting case is the Minutiae method. The lecturer's hypothesis was that Gabor
-enhancement would clean up the binarization and therefore reduce the number of spurious minutiae.
-Our measurements **do not support that mechanism**: the average minutiae count barely changes
-with Gabor (276.9 vs 276.2). Nevertheless, Gabor produced the **largest EER improvement** of any
-algorithm for Minutiae (−2.46 pp, best result 17.86%). We therefore believe the benefit comes
-not from fewer minutiae but from the ridge-enhanced image yielding **more distinctive local
-descriptors** at each minutia; this remains a hypothesis that would need a dedicated test to
-confirm. For the other three algorithms the average Gabor effect (−0.6 to −1.1 pp) lies within
-the sampling noise discussed in Experiment 1 and is not significant.
+The lecturer's hypothesis was that Gabor enhancement would clean up the binarization and reduce the
+number of spurious minutiae. Our measurements **do not support that mechanism**: Gabor does not
+reduce the minutiae count (it slightly increases it, 208 → 248), and once the fingerprint is properly
+segmented (see the ROI fix below) Gabor's average effect on Minutiae EER is essentially nil (+0.24
+pp). For all four algorithms, then, the Gabor variants lie within the sampling noise discussed in
+Experiment 1 — Gabor is not a reliable win for any method.
+
+*(Note: an earlier version of this experiment reported a large Gabor benefit for Minutiae. That was
+traced to a leaky variance-only ROI mask that let Gabor's denoising suppress spurious **background**
+minutiae. After upgrading the segmentation to also use gradient-orientation coherence, the apparent
+benefit disappears — a good example of validating a surprising result before trusting it.)*
 
 ### Conclusion
 We retain **C1 (Gaussian Blur + CLAHE)** as the shared production default because it is robust
 across all four algorithms, and we report the per-algorithm best combos as a secondary finding.
-Gabor is not adopted globally, as its only consistent, reliably-measured effect is increased
-computation and a halved keypoint count, with accuracy gains that are significant only for the
-Minutiae method.
+Gabor is not adopted globally: after correcting the segmentation, its only consistent
+reliably-measured effect is increased computation and a halved keypoint count, with no significant
+accuracy gain for any method.
 
 ---
 
