@@ -1,9 +1,9 @@
 db,difficulty,method,eer_pct,optimal_threshold,genuine_avg,imposter_avg
 DB1_B,average,SIFT,16.67,8.0,143.19,5.47
-DB1_B,average,Minutiae-native,33.25,5.0,4.56,3.93
+DB1_B,average,Minutiae-native,40.56,5.0,4.53,4.0
 DB2_B,easy,SIFT,6.19,7.0,156.34,4.78
-DB2_B,easy,Minutiae-native,41.75,5.0,4.4,4.09
+DB2_B,easy,Minutiae-native,44.13,5.0,4.49,4.24
 DB3_B,hard,SIFT,32.54,6.0,19.93,5.13
-DB3_B,hard,Minutiae-native,48.02,4.0,4.01,3.96
+DB3_B,hard,Minutiae-native,52.78,4.0,3.99,3.91
 DB4_B,synthetic/worst,SIFT,48.25,5.0,4.79,4.73
-DB4_B,synthetic/worst,Minutiae-native,54.44,6.0,5.11,5.2
+DB4_B,synthetic/worst,Minutiae-native,59.6,5.0,4.7,5.44

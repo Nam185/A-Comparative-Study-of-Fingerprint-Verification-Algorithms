@@ -18,25 +18,25 @@ saturated). We run 1:1 verification (genuine = impressions of the same finger, i
 fingers) and report the **Equal Error Rate (EER)**. This is a **best-vs-best** comparison: SIFT uses
 its best preprocessing (C1), and the **dedicated Minutiae matcher** — minutiae described by their
 orientation (θ) and local geometry, matched with RANSAC, **without any SIFT descriptors** — uses its
-own best preprocessing (selected as C2 by a small sweep).
+own best preprocessing (selected as C1+G by a small sweep).
 
 ### Results — 1:1 EER (%) per database
 See Figure *exp6_accuracy_fvcB*.
 
 | Database | SIFT | Minutiae-native |
 |----------|------|------------------|
-| DB2_B (easy)      | **6.19**  | 41.75 |
-| DB1_B (average)   | **16.67** | 33.25 |
-| DB3_B (hard)      | **32.54** | 48.02 |
-| DB4_B (synthetic) | **48.25** | 54.44 |
-| **Mean**          | **25.91** | **44.37** |
+| DB2_B (easy)      | **6.19**  | 44.13 |
+| DB1_B (average)   | **16.67** | 40.56 |
+| DB3_B (hard)      | **32.54** | 52.78 |
+| DB4_B (synthetic) | **48.25** | 59.60 |
+| **Mean**          | **25.91** | **49.27** |
 
 The genuine/impostor score gap tells the story: for SIFT the genuine average is ~143 vs ~5 for
-impostors (clean separation), whereas for the Minutiae matcher the genuine average (~4.6) is barely
-above the impostor average (~3.9) — almost **no separation**, i.e. close to random.
+impostors (clean separation), whereas for the Minutiae matcher the genuine average (~4.5) is barely
+above the impostor average (~4.0) — almost **no separation**, i.e. close to random.
 
 ### Discussion
-On FVC, **SIFT is decisively more accurate** (mean EER 25.9 % vs 44.4 %). The dedicated Minutiae
+On FVC, **SIFT is decisively more accurate** (mean EER 25.9 % vs 49.3 %). The dedicated Minutiae
 matcher, which worked perfectly on SOCOFing, almost fails to separate genuine from impostor pairs
 here. The reason is the **type of genuine pair**:
 
@@ -52,20 +52,22 @@ SIFT survives this because its rich gradient descriptors plus a homography (RANS
 geometric distortion, while a few-nearest-neighbour minutiae descriptor is too fragile when minutiae
 are missing or added.
 
-**Robustness check (to rule out a scale/configuration artefact).** Because the matcher's geometric
-parameters were first set on the upscaled SOCOFing images (~192 px) and FVC images are larger
-(374–560 px), we verified the result is not merely a mis-scaled configuration:
-1. *Extraction is healthy on FVC* — it yields ~100–280 minutiae per image (avg ~150), the expected
-   range, not a degenerate few.
-2. *Loosening the geometry* (Lowe ratio up to 0.95, RANSAC reprojection threshold up to 20 px) left
-   EER at ~33–36 %.
-3. *A scale-invariant descriptor* (neighbour distances normalised by their mean, so the descriptor is
-   independent of image size) gave EER ~35–46 %, still with genuine ≈ impostor.
+**Robustness check (to rule out configuration / segmentation artefacts).** Because the matcher's
+geometric parameters were first set on the upscaled SOCOFing images (~192 px) and FVC images are
+larger (374–560 px), we verified the result is not merely a mis-configuration:
+1. *Extraction is healthy on FVC* — it yields ~100–200 minutiae per image, the expected range.
+2. *Segmentation was improved* — the ROI mask was upgraded (variance **plus** gradient-orientation
+   coherence, then largest connected component) so that minutiae are no longer detected in textured
+   background; despite removing those spurious points, EER did **not** improve (it stayed ~40–53 %),
+   ruling out background noise as the cause.
+3. *Loosening the geometry* (Lowe ratio up to 0.95, RANSAC threshold up to 20 px) and *a
+   scale-invariant descriptor* (neighbour distances normalised by their mean) both kept EER in the
+   ~35–46 % range, still with genuine ≈ impostor.
 
 Across all of these the genuine and impostor score distributions stayed overlapped, so the failure is
 a **structural limitation of this simple matcher** — it loses minutiae correspondence when the two
-captures differ — **not** a mis-scaled parameter. It is, however, **not** a limitation of minutiae
-methodology in general (see Limitations).
+captures differ — **not** a mis-scaled parameter or a segmentation leak. It is, however, **not** a
+limitation of minutiae methodology in general (see Limitations).
 
 This result also **re-frames Experiment 5 honestly**: the Minutiae matcher's apparent accuracy on
 SOCOFing was a property of the near-duplicate test pairs, not of robustness to real variation.
@@ -75,8 +77,8 @@ Combining both experiments gives the full trade-off:
 
 | Criterion | Best method | Evidence |
 |-----------|-------------|----------|
-| **Accuracy under real variation** | **SIFT** | FVC mean EER 25.9 % vs 44.4 % (Exp 6) |
-| **Speed at scale** | **Minutiae** | ~25× faster match; usable at N = 60 000 (Exp 5) |
+| **Accuracy under real variation** | **SIFT** | FVC mean EER 25.9 % vs 49.3 % (Exp 6) |
+| **Speed at scale** | **Minutiae** | ~14× faster match; usable at N = 60 000 (Exp 5) |
 
 So neither method is ideal for real-world 1:N on its own: **SIFT is accurate and robust to real
 capture variation but too slow for a very large gallery**, while **a simple Minutiae matcher is fast

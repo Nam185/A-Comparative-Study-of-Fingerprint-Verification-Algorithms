@@ -34,17 +34,41 @@ def orientation_field(gray, block=12):
     return np.mod(theta, np.pi)
 
 
-def _roi_mask(enh, block=16, var_thresh=120):
+def roi_mask(enh, block=16, var_thresh=100, coh_thresh=0.35):
+    """Segment the fingerprint from the background.
+
+    Variance alone fails when the background is textured/striped (e.g. the DB3
+    capacitive sensor), because noisy background also has high variance. We therefore
+    require BOTH high local variance AND high gradient-orientation **coherence** (real
+    ridges flow consistently; noise does not), then keep only the largest connected
+    component so detached background patches are dropped.
+    """
     h, w = enh.shape
-    mask = np.zeros((h, w), np.uint8)
+    gx = cv2.Sobel(enh, cv2.CV_64F, 1, 0, ksize=3)
+    gy = cv2.Sobel(enh, cv2.CV_64F, 0, 1, ksize=3)
+    Gxx = cv2.boxFilter(gx * gx, -1, (block, block))
+    Gyy = cv2.boxFilter(gy * gy, -1, (block, block))
+    Gxy = cv2.boxFilter(gx * gy, -1, (block, block))
+    coherence = np.sqrt((Gxx - Gyy) ** 2 + 4 * Gxy ** 2) / (Gxx + Gyy + 1e-6)
+
+    var = np.zeros((h, w), np.float32)
     f = enh.astype(np.float32)
     for y in range(0, h, block):
         for x in range(0, w, block):
-            if f[y:y + block, x:x + block].var() > var_thresh:
-                mask[y:y + block, x:x + block] = 1
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((9, 9), np.uint8))
-    return cv2.erode(mask, np.ones((8, 8), np.uint8))
+            var[y:y + block, x:x + block] = f[y:y + block, x:x + block].var()
+
+    mask = ((var > var_thresh) & (coherence > coh_thresh)).astype(np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((11, 11), np.uint8))
+    num, labels, stats, _ = cv2.connectedComponentsWithStats(mask)
+    if num > 1:
+        biggest = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+        mask = (labels == biggest).astype(np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
+    return cv2.erode(mask, np.ones((10, 10), np.uint8))
+
+
+# backward-compatible alias
+_roi_mask = roi_mask
 
 
 def extract_minutiae(enh):

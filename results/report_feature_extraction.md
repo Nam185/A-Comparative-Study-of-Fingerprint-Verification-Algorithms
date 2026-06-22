@@ -39,7 +39,7 @@ histograms over an 8×8 grid. This captures *texture* but not the *geometry* of 
 thins the ridges to a 1-pixel skeleton, and applies the **Crossing Number** rule: a skeleton pixel
 with one neighbour is a **ridge ending** (red) and one with three neighbours is a **bifurcation**
 (blue); a local ridge **orientation** (green tick) is attached to each. On this sample it extracts
-**158 minutiae**, located on the ridge endings/forks as expected. (Endings dominate bifurcations here
+**131 minutiae**, located on the ridge endings/forks as expected. (Endings dominate bifurcations here
 because broken ridges in the binarised image create extra endings — a known sensitivity of the
 Crossing Number method, mitigated by the ROI mask and spurious-minutiae removal.)
 
@@ -54,11 +54,11 @@ Running the same extractors on a **clean** database (DB2_B, optical 500 dpi) and
 *sensor/image quality dominates accuracy* — visible already at the extraction stage:
 
 - **DB2_B (clean):** the preprocessed ridges are crisp, the LBP texture map follows the ridge flow
-  cleanly, and the features sit tightly on the ridges (≈2 435 SIFT keypoints, 321 minutiae). This is
+  cleanly, and the features sit tightly on the ridges (≈2 435 SIFT keypoints, 205 minutiae). This is
   what "extraction working well" looks like.
 - **DB3_B (hard, dark):** CLAHE has to amplify a weak signal, which also amplifies background noise.
   The LBP map becomes speckled, SIFT/ORB keypoints spill into the noisy background, and the minutiae
-  set gains many **spurious bifurcations** clustered in noisy regions (92 vs 25 on DB2). The feature
+  set gains many **spurious bifurcations** clustered in noisy regions (84 vs 17 on DB2). The feature
   *counts* stay comparable, but their *quality and repeatability* drop — which is exactly why DB3
   matching is far worse (1:1 EER ≈ 32 % vs ≈ 6 % on DB2). In other words, the accuracy gap between
   sensors originates in the extraction stage, not in the matcher.

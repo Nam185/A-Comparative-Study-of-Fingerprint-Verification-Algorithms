@@ -42,17 +42,7 @@ def lbp_features(enh):
     return {"kind": "hist", "vec": np.concatenate(vec)}
 
 # ---------------- Minutiae (Crossing Number) ----------------
-def _roi_mask(enh, block=16, var_thresh=100):
-    h, w = enh.shape
-    mask = np.zeros((h, w), np.uint8)
-    f = enh.astype(np.float32)
-    for y in range(0, h, block):
-        for x in range(0, w, block):
-            if f[y:y+block, x:x+block].var() > var_thresh:
-                mask[y:y+block, x:x+block] = 1
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((9, 9), np.uint8))
-    return cv2.erode(mask, np.ones((10, 10), np.uint8))
+from core.minutiae_native import roi_mask as _roi_mask   # variance+coherence+largest-CC segmentation
 
 def extract_minutiae_points(enh):
     """Return list of (x, y, type) where type is 'end' or 'bif'."""

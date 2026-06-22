@@ -25,47 +25,48 @@ Three differences from the controlled study, all deliberate:
 ### (B) Per-method preprocessing tuning
 We swept four pipelines per method (`x2+C1`, `x3+C1`, `x3+C1G`, `x3+C2`) and measured EER on an
 Altered-Hard validation subset. **Every candidate produced perfect genuine/impostor separation
-(EER = 0 %)** — on SOCOFing the genuine scores dwarf the impostor scores (e.g. SIFT 636 vs 10;
-Minutiae 47 vs 4), so the preprocessing choice does not affect accuracy. Because accuracy is
-saturated, the tuning selects the **cheapest option, `x2+C1` (×2 upscale + CLAHE)**, for both
-methods — which also minimises latency, consistent with the goal of this experiment.
+(EER ≈ 0–2 %)** — on SOCOFing the genuine scores dwarf the impostor scores, so the preprocessing
+choice barely affects accuracy. SIFT (already saturated) takes the cheapest pipeline `x2+C1`, while
+the Minutiae matcher takes `x3+C1G` (its small validation sweep favoured the ×3-upscale + Gabor
+variant, EER ≈ 1.25 %).
 
 ### (A) Latency and scaling
 | Algorithm | Features/img | Extraction (ms/img) | **Match (ms/comparison)** |
 |-----------|--------------|---------------------|----------------------------|
-| SIFT      | ~1292 keypoints | 25.3 | **15.1** |
-| Minutiae  | ~141 minutiae   | 53.0 | **0.59** |
+| SIFT      | ~1292 keypoints | 26.9 | **14.3** |
+| Minutiae  | ~212 minutiae   | 148.7 | **0.99** |
 
-Minutiae matches **~25× faster** than SIFT, because it compares ~141 points instead of ~1292
+Minutiae matches **~14× faster** than SIFT, because it compares ~212 points instead of ~1292
 keypoints. Since a 1:N query costs `extract + N × match`, this gap dominates as the gallery grows
 (Figure *exp5_latency_scaling*, log–log):
 
 | Gallery N | SIFT (s/query) | Minutiae (s/query) |
 |-----------|----------------|---------------------|
-| 100       | 1.7   | 0.11 |
-| 1 000     | 16.9  | 0.60 |
-| 6 000     | 101   | 3.4  |
-| 60 000    | ~1014 (≈17 min) | 33 |
+| 100       | 1.5   | 0.25 |
+| 1 000     | 14.3  | 1.14 |
+| 6 000     | 85.9  | 6.1  |
+| 60 000    | ~858 (≈14 min) | ~60 |
 
 ### (C) Identification accuracy
-With a 100-identity gallery, **both methods achieve 100 % Rank-1 and 100 % identification rate
-at every alteration level — Easy, Medium and Hard** (Figure *exp5_accuracy_vs_difficulty*; the two
-lines overlap at 100 %). The SOCOFing alterations (obliteration, central rotation, z-cut) preserve
-enough ridge structure that matching a finger to its own altered version is unambiguous against
-distinct other fingers. **Accuracy does not separate the two methods.**
+With a 100-identity gallery, **both methods achieve ~100 % Rank-1 at every alteration level — Easy,
+Medium and Hard** (Figure *exp5_accuracy_vs_difficulty*; SIFT 100 % throughout, Minutiae 100 % on
+Easy/Medium and 100 % Rank-1 / 97 % identification rate on Hard). The SOCOFing alterations
+(obliteration, central rotation, z-cut) preserve enough ridge structure that matching a finger to its
+own altered version is unambiguous against distinct other fingers. **Accuracy barely separates the
+two methods.**
 
 ### Discussion
-The result is decisive precisely *because* accuracy saturates. When two methods are equally
-accurate, the deployment choice is governed by efficiency, and here Minutiae is roughly **25×
+The result is decisive precisely *because* accuracy saturates. When two methods are essentially
+equally accurate, the deployment choice is governed by efficiency, and here Minutiae is roughly **14×
 faster per comparison**. For a real attendance/identification system with a large enrolment
-database, SIFT becomes impractical (≈17 minutes per query at N = 60 000), whereas the Minutiae
-matcher stays usable (≈33 s, and far less with indexing). We also note that the dataset's tiny
+database, SIFT becomes impractical (≈14 minutes per query at N = 60 000), whereas the Minutiae
+matcher stays usable (≈1 minute, and far less with indexing). We also note that the dataset's tiny
 images did **not** prevent high accuracy after upscaling — classical matching is more robust to
 low resolution here than expected, likely because the alterations keep the global ridge flow intact.
 
 ### Conclusion
 For the real-world, large-gallery 1:N problem, the **dedicated Minutiae matcher is the better
-choice**: it matches SIFT's accuracy on SOCOFing (both ~100 %) while being about **25× faster**,
+choice**: it matches SIFT's accuracy on SOCOFing (both ~100 %) while being about **14× faster**,
 which is the property that actually determines feasibility at scale. SIFT remains the safer pick
 only when the gallery is small and maximum robustness on hard, low-quality single comparisons is
 required.
