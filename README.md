@@ -44,6 +44,9 @@ python experiments/run_experiments.py --exp 4   # scoring strategy study (S1..S4
 
 # Interactive demos (menu: 1=evaluate EER, 2=1:N attendance, 3=outlier/visualize, 4=exit)
 python apps/sift_app.py
+
+# Feature-extraction showcase (SIFT/ORB/LBP/Minutiae features drawn on a fingerprint)
+python experiments/visualize_extraction.py DB1_B/101_1.tif
 ```
 
 All experiments fix a random seed (`core.io_utils.SEED = 42`) so results are reproducible.
