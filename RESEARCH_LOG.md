@@ -5,7 +5,10 @@ made to the pipeline (Preprocessing → Feature Extraction → Matching → Eval
 the **before vs. after** state, the measured results, and **why** each change was made.
 Use the "Iteration template" at the bottom to log future experiments the same way.
 
-Dataset: **FVC2002** (`fingerprints/DB1_B..DB4_B`), each DB = 10 fingers (ID 101–110) × 8 impressions.
+Datasets: **FVC2002** set B (`fingerprints/DB1_B..DB4_B`), each DB = 10 fingers (ID 101–110) × 8
+impressions — the accuracy benchmark (Exp 1–4, 6). **SOCOFing** (`fingerprints/SOCOFing/`, 600
+subjects × 10 fingers + altered versions) — the large 1:N speed study (Exp 5). Both are
+licence-restricted and git-ignored. See Iterations 5–7 for the SOCOFing / minutiae work.
 
 ---
 
