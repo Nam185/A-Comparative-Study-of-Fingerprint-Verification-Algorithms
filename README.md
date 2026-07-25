@@ -50,7 +50,7 @@ experiments/
   visualize_matching.py    draw genuine-vs-impostor SIFT matches
 results/             CSV outputs + figures/ + report_*.md (ready-to-paste report text)
   report_exp1_exp2.md  report_exp3_exp4.md  report_exp5.md  report_exp6.md
-  report_feature_extraction.md  recent_changes_summary.md
+  report_feature_extraction.md  report_liveness.md
 fingerprints/        datasets (NOT committed — licence-restricted, see .gitignore)
 RESEARCH_LOG.md      full chronological changelog + every result (Iterations 1–7)
 ```
@@ -95,8 +95,8 @@ A fixed seed (`core.io_utils.SEED = 42`) makes every run reproducible.
 
 ## How to explore this project (new readers start here)
 1. **Goal (5 min):** read this README, then skim [RESEARCH_LOG.md](RESEARCH_LOG.md) for the full story.
-2. **Results without running anything:** browse `results/figures/` and the `results/report_*.md` files;
-   [recent_changes_summary.md](results/recent_changes_summary.md) summarizes the latest updates.
+2. **Results without running anything:** browse `results/figures/` and the `results/report_*.md` files
+   (one per experiment) for plain-English findings with tables.
 3. **Try it (most intuitive first):**
    ```bash
    python apps/sift_app.py        # choose 2 = 1:N attendance, then enter e.g. 105_2.tif
