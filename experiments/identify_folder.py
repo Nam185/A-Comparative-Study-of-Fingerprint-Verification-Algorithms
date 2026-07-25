@@ -17,6 +17,9 @@ import os
 import sys
 import glob
 import argparse
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.io_utils import BASE_DIR, read_gray, img_path
@@ -72,7 +75,7 @@ def main():
 
     print(f"{'probe image':40s} {'best ID':>8s} {'score':>7s}   verdict")
     print("-" * 75)
-    n_accept = n_reject = 0
+    results = []
     for p in probes:
         img = read_gray(p)
         if img is None:
@@ -86,13 +89,34 @@ def main():
                 best_score, best_id = s, fid
         accepted = best_score >= thr
         verdict = f"ACCEPT -> ID {best_id}" if accepted else "REJECT (imposter)"
-        n_accept += accepted
-        n_reject += not accepted
+        results.append((p, img, best_id, best_score, accepted))
         print(f"{os.path.basename(p):40s} {best_id:>8d} {best_score:>7.0f}   {verdict}")
 
+    n_accept = sum(r[4] for r in results)
+    n_reject = len(results) - n_accept
     print("-" * 75)
-    print(f"Summary: {len(probes)} probes -> {n_accept} accepted, {n_reject} rejected as imposter.")
+    print(f"Summary: {len(results)} probes -> {n_accept} accepted, {n_reject} rejected as imposter.")
     print("(A genuine enrolled finger should ACCEPT; an unknown/outside finger should REJECT.)")
+
+    # Visual proof: each probe image with its verdict (green = accept, red = reject)
+    if results:
+        cols = min(4, len(results))
+        rows_n = (len(results) + cols - 1) // cols
+        plt.figure(figsize=(4 * cols, 4.2 * rows_n))
+        for k, (p, img, bid, sc, acc) in enumerate(results):
+            ax = plt.subplot(rows_n, cols, k + 1)
+            ax.imshow(img, cmap="gray"); ax.axis("off")
+            tag = f"ACCEPT -> ID {bid}" if acc else "REJECT (imposter)"
+            ax.set_title(f"{os.path.basename(p)}\n{tag}  (score {sc:.0f} vs thr {thr:.0f})",
+                         fontsize=9, color="green" if acc else "red", fontweight="bold")
+        plt.suptitle(f"1:N imposter test — {args.algo.upper()} on gallery {args.db} "
+                     f"(green=accept, red=reject)", fontsize=13, fontweight="bold")
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        figdir = os.path.join(BASE_DIR, "results", "figures")
+        os.makedirs(figdir, exist_ok=True)
+        out = os.path.join(figdir, "imposter_test.png")
+        plt.savefig(out, dpi=150); plt.close()
+        print(f"Saved figure: {out}")
 
 
 if __name__ == "__main__":
