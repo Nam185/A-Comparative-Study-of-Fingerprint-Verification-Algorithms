@@ -405,3 +405,18 @@ DB1_B, preprocessing-combo EER bars (Exp 1).
   full pipeline (features → SVM → APCER/BPCER/ACER → ROC → CSV) verified end-to-end on a synthetic
   live/blur dataset (100% — trivial, only confirms the code path; real LivDet numbers will be realistic).
 - **Status:** code complete and tested; awaiting a real LivDet dataset to produce reportable numbers.
+
+### Iteration 9 — 2026-07-XX — Open-set imposter rejection tool + liveness isolation check
+- **No-conflict verification:** confirmed Experiment 7 (liveness) does not affect the earlier work —
+  `sklearn` is imported lazily (Exp 1-6 run without it), `core/liveness.py` is imported by nothing
+  else, and re-running Exp 4 reproduced the committed CSV **byte-for-byte**.
+- **What changed:** added `experiments/identify_folder.py` — batch 1:N identification on a folder of
+  probe images with **imposter rejection**. Enrolls a gallery (default DB1_B, 10 fingers), then for
+  each image in `fingerprints/probe/` reports best ID + score + **ACCEPT (identified) / REJECT
+  (imposter)** vs the per-algorithm threshold. Supports sift/orb/minutiae.
+- **Why:** the 1:N experiments so far are *closed-set* (every query belongs to an enrolled finger),
+  measuring Rank-1. A real system is *open-set* and must also reject unknown fingers. This tool lets
+  the user drop an outside image (e.g. downloaded from the internet) and see it rejected.
+- **Verification:** with 2 genuine + 2 outside probes, SIFT accepted both enrolled fingers
+  (scores 286, 969) and rejected both outsiders (scores 8, 6 < threshold 13) — correct behaviour.
+  The `probe/` folder is under git-ignored `fingerprints/`, so no images are committed.

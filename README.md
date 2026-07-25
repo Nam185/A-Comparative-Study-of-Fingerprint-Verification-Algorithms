@@ -77,6 +77,9 @@ python experiments/visualize_liveness.py DB2_B/101_1.tif     # what the PAD extr
 
 # Interactive demos (menu: 1=evaluate EER, 2=1:N attendance, 3=outlier/visualize, 4=exit)
 python apps/sift_app.py
+
+# 1:N with imposter rejection — drop images into fingerprints/probe/ then:
+python experiments/identify_folder.py --algo sift   # ACCEPT (identified) / REJECT (imposter) per image
 ```
 Run experiments one at a time (each loads SIFT; running several at once can exhaust memory).
 A fixed seed (`core.io_utils.SEED = 42`) makes every run reproducible.
