@@ -572,22 +572,99 @@ def experiment_6():
     return rows
 
 
+# ============================== EXPERIMENT 7 (liveness / PAD) ==============================
+def experiment_7(root=None, test_size=0.3):
+    """Presentation Attack Detection: classify LIVE vs SPOOF fingerprints.
+
+    Supervised (needs labelled data): LBP texture features + SVM, reported with the
+    standard PAD metrics APCER / BPCER / ACER. Point it at a folder that contains
+    live and spoof images (auto-detected by folder name; LivDet layouts work).
+    """
+    seed = set_seed()
+    try:
+        from sklearn.svm import SVC
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.pipeline import make_pipeline
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import roc_auc_score, roc_curve
+    except ImportError:
+        print("Experiment 7 needs scikit-learn.  Install it with:  pip install scikit-learn")
+        return
+    from core.liveness import load_live_spoof, pad_features, pad_metrics
+
+    root = root or os.path.join(BASE_DIR, "fingerprints", "liveness")
+    items = load_live_spoof(root)
+    if not items:
+        print(f"No live/spoof images found under: {root}")
+        print("Place a liveness dataset there, e.g.:")
+        print("  fingerprints/liveness/Live/*.png    and    fingerprints/liveness/Spoof/*.png")
+        print("  (a LivDet folder layout with Live/ and Fake/ subfolders also works).")
+        return
+
+    n_live = sum(lab for _, lab in items)
+    n_spoof = len(items) - n_live
+    print(f"\n=== EXPERIMENT 7: Liveness detection (PAD) — LBP + SVM | seed={seed} ===")
+    print(f"Dataset: {len(items)} images ({n_live} live, {n_spoof} spoof) from {root}\n")
+
+    X, y = [], []
+    for p, lab in items:
+        f = pad_features(read_gray(p))
+        if f is not None:
+            X.append(f); y.append(lab)
+    X = np.array(X); y = np.array(y)
+
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=test_size, stratify=y, random_state=seed)
+    clf = make_pipeline(StandardScaler(),
+                        SVC(kernel="rbf", C=10, gamma="scale", probability=True, random_state=seed))
+    clf.fit(Xtr, ytr)
+    ypred = clf.predict(Xte)
+    yscore = clf.predict_proba(Xte)[:, 1]  # P(live)
+
+    m = pad_metrics(yte, ypred)
+    auc = roc_auc_score(yte, yscore)
+    print("--- Results on the held-out test split ---")
+    print(f"Accuracy : {m['accuracy']:.2f}%")
+    print(f"APCER    : {m['APCER']:.2f}%   (spoofs wrongly accepted as live)")
+    print(f"BPCER    : {m['BPCER']:.2f}%   (live wrongly rejected as spoof)")
+    print(f"ACER     : {m['ACER']:.2f}%   (average = overall error)")
+    print(f"ROC AUC  : {auc:.4f}")
+
+    rows = [{"n_total": len(items), "n_live": n_live, "n_spoof": n_spoof,
+             "test_size": test_size, "accuracy_pct": round(m["accuracy"], 2),
+             "APCER_pct": round(m["APCER"], 2), "BPCER_pct": round(m["BPCER"], 2),
+             "ACER_pct": round(m["ACER"], 2), "roc_auc": round(float(auc), 4)}]
+    _write_csv(os.path.join(RESULTS, "exp7_liveness_pad.csv"), rows)
+
+    fpr, tpr, _ = roc_curve(yte, yscore)
+    plt.figure(figsize=(7, 6))
+    plt.plot(fpr, tpr, marker=".", label=f"LBP+SVM (AUC={auc:.3f})")
+    plt.plot([0, 1], [0, 1], "k--", alpha=0.4, label="chance")
+    plt.xlabel("False Positive Rate (spoof accepted)", fontweight="bold")
+    plt.ylabel("True Positive Rate (live accepted)", fontweight="bold")
+    plt.title("Exp 7: Liveness detection ROC (live vs spoof)", fontweight="bold")
+    plt.legend(); plt.grid(linestyle="--", alpha=0.6); plt.tight_layout()
+    fig = os.path.join(FIGURES, "exp7_liveness_roc.png")
+    plt.savefig(fig, dpi=150); plt.close()
+    print(f"\nSaved: results/exp7_liveness_pad.csv\nSaved: {fig}")
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--exp", type=int, choices=[1, 2, 3, 4, 5, 6])
+    parser.add_argument("--exp", type=int, choices=[1, 2, 3, 4, 5, 6, 7])
     parser.add_argument("--all", action="store_true")
     args = parser.parse_args()
 
     runners = {1: experiment_1, 2: experiment_2, 3: experiment_3, 4: experiment_4,
-               5: experiment_5, 6: experiment_6}
+               5: experiment_5, 6: experiment_6, 7: experiment_7}
     if args.all:
-        for i in [1, 2, 3, 4, 5, 6]:
+        for i in [1, 2, 3, 4, 5, 6]:   # 7 (liveness) needs its own dataset -> run explicitly
             runners[i]()
     elif args.exp:
         runners[args.exp]()
     else:
         print("Select: 1=Preprocessing 2=Generalization 3=Algo x DB 4=Scoring "
-              "5=SOCOFing speed 6=FVC accuracy(SIFT vs Minutiae-native)")
+              "5=SOCOFing speed 6=FVC accuracy 7=Liveness/PAD")
         choice = input("Experiment number: ").strip()
         runners.get(int(choice), lambda: print("Invalid"))() if choice.isdigit() else print("Invalid")
 

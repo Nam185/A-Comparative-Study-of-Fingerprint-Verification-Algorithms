@@ -388,3 +388,20 @@ DB1_B, preprocessing-combo EER bars (Exp 1).
     segmentation Gabor's effect on Minutiae is ≈ +0.24 pp (no help), consistent with the other methods.
 - **Lesson:** validate a surprising result (Gabor uniquely helping Minutiae) before trusting it —
   here it traced back to a segmentation bug.
+
+### Iteration 8 — 2026-07-XX — Exp 7: Liveness detection / Presentation Attack Detection (PAD)
+- **What changed:** added anti-spoofing — distinguish a LIVE finger from a SPOOF (gelatin/latex/
+  silicone/wood-glue/tape replica). New `core/liveness.py` (multi-radius uniform LBP texture +
+  2 quality stats = 56-D features; `load_live_spoof` auto-detects live/spoof from folder names;
+  `pad_metrics` = APCER/BPCER/ACER) and `experiment_7` (LBP+SVM, stratified split, ROC).
+  Added `scikit-learn` to requirements. Report: `report_liveness.md`.
+- **Paradigm note (honest):** unlike matching (zero-training), PAD is **supervised** — it must be
+  TRAINED on labelled live/spoof data. Classical LBP+SVM is the standard LivDet software baseline.
+- **Metrics:** APCER (spoof accepted as live — security error), BPCER (live rejected — convenience
+  error), ACER = mean; plus accuracy and ROC AUC (ISO/IEC 30107-3).
+- **Dataset:** LivDet (live/spoof, free for academia but needs registration; mirrors on Kaggle/GitHub).
+  Not yet run — results pending the user's dataset. Loader handles LivDet or a simple Live/+Spoof/ split.
+- **Verification:** feature extraction (56-D, finite) and label auto-detection tested on FVC paths;
+  full pipeline (features → SVM → APCER/BPCER/ACER → ROC → CSV) verified end-to-end on a synthetic
+  live/blur dataset (100% — trivial, only confirms the code path; real LivDet numbers will be realistic).
+- **Status:** code complete and tested; awaiting a real LivDet dataset to produce reportable numbers.

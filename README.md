@@ -3,9 +3,10 @@
 Traditional, **zero-training** fingerprint recognition, comparing four hand-crafted
 feature/matching approaches (SIFT, ORB, LBP, Minutiae) on two public datasets:
 **FVC2002** (controlled accuracy benchmark) and **SOCOFing** (a large, real 1:N gallery).
-The study covers preprocessing, the algorithms, scoring strategy, and a real-world
-scalability test, evaluated for **1:1 verification (EER)** and **1:N identification**
-(a class-attendance scenario) with **accuracy and latency** as the two primary criteria.
+The study covers preprocessing, the algorithms, scoring strategy, a real-world
+scalability test, and **liveness detection / anti-spoofing (PAD)**, evaluated for
+**1:1 verification (EER)** and **1:N identification** (a class-attendance scenario)
+with **accuracy and latency** as the two primary criteria.
 
 All experiments are reproducible (fixed seed) and every change/finding is logged in
 [RESEARCH_LOG.md](RESEARCH_LOG.md). Ready-to-paste report text lives in `results/report_*.md`.
@@ -27,6 +28,7 @@ All experiments are reproducible (fixed seed) and every change/finding is logged
 | 4 | Scoring strategy (S1..S4) | FVC2002 B | RANSAC inlier **count** (S3) is best; ratio (S4) worst |
 | 5 | SIFT vs Minutiae **at scale** (speed) | SOCOFing | accuracy saturates → Minutiae ~14× faster wins |
 | 6 | SIFT vs Minutiae **accuracy** (best-vs-best) | FVC2002 B | SIFT robust to real variation; simple minutiae is not |
+| 7 | **Liveness detection / PAD** (LBP + SVM) | LivDet (live/spoof) | reject fake fingers; APCER/BPCER/ACER metrics |
 
 Plus two visualizations: a **feature-extraction showcase** and a **genuine-vs-impostor matching** figure.
 
@@ -39,6 +41,7 @@ core/                shared code used by both the experiments and the demo apps
   minutiae_native.py   dedicated minutiae matcher (orientation + geometry, no SIFT descriptors)
   matching.py          match + RANSAC + scoring variants S1..S4
   evaluation.py        1:1 EER, 1:N Rank-1 / identification rate
+  liveness.py          PAD feature extraction (LBP texture) + APCER/BPCER/ACER metrics
 apps/                interactive demo programs (one per algorithm)
   sift_app.py  orb_app.py  lbp_app.py  minutiae_app.py
 experiments/
@@ -64,6 +67,7 @@ python experiments/run_experiments.py --exp 3   # algorithm comparison: EER + la
 python experiments/run_experiments.py --exp 4   # scoring strategy study (S1..S4)
 python experiments/run_experiments.py --exp 5   # SOCOFing: SIFT vs Minutiae at scale (speed)
 python experiments/run_experiments.py --exp 6   # FVC: SIFT vs Minutiae accuracy (best-vs-best)
+python experiments/run_experiments.py --exp 7   # liveness / PAD (needs scikit-learn + a live/spoof dataset)
 
 # Visualizations (saved to results/figures/)
 python experiments/visualize_extraction.py DB2_B/101_1.tif   # feature-extraction showcase
@@ -122,6 +126,10 @@ yourself and place them under `fingerprints/`.
 - **SOCOFing** — 600 subjects × 10 fingers (6 000 real prints) + synthetically *Altered* versions
   (Easy/Medium/Hard). Used for the large-gallery 1:N speed study. Licence: noncommercial research.
   Place at `fingerprints/SOCOFing/Real` and `fingerprints/SOCOFing/Altered/Altered-{Easy,Medium,Hard}`.
+- **LivDet** (liveness / Exp 7) — live and spoof fingerprints (gelatin/latex/silicone/…). Free for
+  academic research but requires a request via the official LivDet site (some mirrors on Kaggle/GitHub).
+  Place under `fingerprints/liveness/` with `Live/` and `Spoof/` (or a LivDet `Live/`+`Fake/` layout);
+  the loader auto-detects the class from folder names.
 
 ## License
 Released under the MIT License — see [LICENSE](LICENSE). The MIT license covers the **code only**, not

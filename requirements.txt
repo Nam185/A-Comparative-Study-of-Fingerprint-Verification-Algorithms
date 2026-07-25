@@ -2,3 +2,4 @@ opencv-python>=4.8
 numpy>=1.24
 scikit-image>=0.21
 matplotlib>=3.7
+scikit-learn>=1.3   # only needed for Experiment 7 (liveness / PAD classifier)
