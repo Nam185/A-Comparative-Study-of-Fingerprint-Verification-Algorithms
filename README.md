@@ -72,6 +72,8 @@ python experiments/run_experiments.py --exp 7   # liveness / PAD (needs scikit-l
 # Visualizations (saved to results/figures/)
 python experiments/visualize_extraction.py DB2_B/101_1.tif   # feature-extraction showcase
 python experiments/visualize_matching.py DB2_B 101           # genuine vs impostor matches
+python experiments/visualize_liveness.py DB2_B/101_1.tif     # what the PAD extracts (LBP texture)
+#   ...or compare a real live vs spoof:  visualize_liveness.py <live.png> <spoof.png>
 
 # Interactive demos (menu: 1=evaluate EER, 2=1:N attendance, 3=outlier/visualize, 4=exit)
 python apps/sift_app.py

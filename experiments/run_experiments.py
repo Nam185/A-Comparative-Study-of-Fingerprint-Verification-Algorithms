@@ -606,14 +606,15 @@ def experiment_7(root=None, test_size=0.3):
     print(f"\n=== EXPERIMENT 7: Liveness detection (PAD) — LBP + SVM | seed={seed} ===")
     print(f"Dataset: {len(items)} images ({n_live} live, {n_spoof} spoof) from {root}\n")
 
-    X, y = [], []
+    X, y, P = [], [], []
     for p, lab in items:
         f = pad_features(read_gray(p))
         if f is not None:
-            X.append(f); y.append(lab)
-    X = np.array(X); y = np.array(y)
+            X.append(f); y.append(lab); P.append(p)
+    X = np.array(X); y = np.array(y); P = np.array(P)
 
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=test_size, stratify=y, random_state=seed)
+    Xtr, Xte, ytr, yte, _, pte = train_test_split(X, y, P, test_size=test_size,
+                                                  stratify=y, random_state=seed)
     clf = make_pipeline(StandardScaler(),
                         SVC(kernel="rbf", C=10, gamma="scale", probability=True, random_state=seed))
     clf.fit(Xtr, ytr)
@@ -645,7 +646,47 @@ def experiment_7(root=None, test_size=0.3):
     plt.legend(); plt.grid(linestyle="--", alpha=0.6); plt.tight_layout()
     fig = os.path.join(FIGURES, "exp7_liveness_roc.png")
     plt.savefig(fig, dpi=150); plt.close()
-    print(f"\nSaved: results/exp7_liveness_pad.csv\nSaved: {fig}")
+
+    # Confusion matrix (visual proof of the classifier's decisions)
+    cm = np.zeros((2, 2), int)  # rows = true (0 spoof, 1 live), cols = predicted
+    for t, pr in zip(yte, ypred):
+        cm[int(t), int(pr)] += 1
+    plt.figure(figsize=(5, 4.5))
+    plt.imshow(cm, cmap="Blues")
+    for i in range(2):
+        for j in range(2):
+            plt.text(j, i, cm[i, j], ha="center", va="center",
+                     color="white" if cm[i, j] > cm.max() / 2 else "black", fontsize=14, fontweight="bold")
+    plt.xticks([0, 1], ["pred spoof", "pred live"]); plt.yticks([0, 1], ["true spoof", "true live"])
+    plt.title("Exp 7: Confusion matrix (test set)", fontweight="bold")
+    plt.tight_layout()
+    fig_cm = os.path.join(FIGURES, "exp7_liveness_confusion.png")
+    plt.savefig(fig_cm, dpi=150); plt.close()
+
+    # Sample predictions: a few test images with predicted label + confidence
+    order = list(np.argsort(yte)) + list(np.argsort(-yte))  # some spoof then some live
+    picks, seen = [], set()
+    for idx in order:
+        if idx not in seen:
+            seen.add(idx); picks.append(idx)
+        if len(picks) >= 8:
+            break
+    plt.figure(figsize=(16, 4.5))
+    for k, idx in enumerate(picks):
+        ax = plt.subplot(2, 4, k + 1)
+        ax.imshow(read_gray(pte[idx]), cmap="gray"); ax.axis("off")
+        true_lab = "live" if yte[idx] == 1 else "spoof"
+        pred_lab = "live" if ypred[idx] == 1 else "spoof"
+        ok = (yte[idx] == ypred[idx])
+        ax.set_title(f"true={true_lab} / pred={pred_lab}\nP(live)={yscore[idx]:.2f}",
+                     fontsize=9, color="green" if ok else "red", fontweight="bold")
+    plt.suptitle("Exp 7: sample test predictions (green=correct, red=wrong)", fontsize=13, fontweight="bold")
+    plt.tight_layout(rect=[0, 0, 1, 0.93])
+    fig_s = os.path.join(FIGURES, "exp7_liveness_samples.png")
+    plt.savefig(fig_s, dpi=150); plt.close()
+
+    print(f"\nSaved: results/exp7_liveness_pad.csv")
+    print(f"Saved: {fig}\nSaved: {fig_cm}\nSaved: {fig_s}")
     return rows
 
 

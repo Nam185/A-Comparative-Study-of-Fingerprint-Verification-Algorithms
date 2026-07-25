@@ -47,6 +47,14 @@ the official site (University of Cagliari); some mirrors exist on Kaggle/GitHub.
 (`.../Live/...`, `.../Fake/Gelatine/...`) or a simple `Live/` + `Spoof/` split both work — place the
 data under `fingerprints/liveness/`.
 
+### How to inspect it (visual proof, not just numbers)
+- `python experiments/visualize_liveness.py <image>` renders **what the detector extracts**: the
+  multi-radius LBP texture maps and the LBP histogram (Figure *liveness_features_single*). Pass a
+  live and a spoof image to see the texture/feature difference side by side.
+- Running `--exp 7` on a real dataset additionally saves a **ROC curve**, a **confusion matrix**, and
+  a **sample-predictions** panel (each test image with its predicted label and confidence, green =
+  correct / red = wrong) — so the classifier's decisions can be checked by eye.
+
 ### Results
 *(To be filled after running on a real dataset: `python experiments/run_experiments.py --exp 7`.)*
 For reference, classical LBP+SVM PAD in the literature reaches roughly **85–95 % accuracy** on
